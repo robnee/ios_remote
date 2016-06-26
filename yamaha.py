@@ -17,19 +17,40 @@ def get_local_ip_address():
   return ip_address_string.split('.')
 
 
-def disc():
-  hostname = socket.gethostname()
-  print(hostname)
+def disc(port):
+    localhost = socket.gethostname()
+    print(localhost)
 
-  print(get_local_ip_address())
+    host_address = local_ip = get_local_ip_address()
 
-  start = 1
-  end = 254
+    start = 1
+    end = 54
 
-  while(start <= end):
-    print(start)
+    while(start <= end):
+        host_address[3] = str(start)
+        hostname = '.'.join(host_address)
 
-    start += 1
+        print(hostname)
+        try:
+            print "socket"
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            print "connect"
+            s.connect((hostname, port))
+            print "send"
+            s.sendall(b'@SYS:MODELNAME=?\r\n')
+            data = s.recv(1024)
+            s.close ()
+            s = None
+            print(hostname, ' Received', repr(data))
+        except socket.error:
+            print "except"
+            s.close()
+            s = None
 
-disc()
+        print "inc"
+        start += 1
+    
+port=50000
+disc(port)
 
