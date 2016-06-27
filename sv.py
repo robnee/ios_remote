@@ -1,15 +1,22 @@
 #! /usr/bin/python
 
-from xmlrpc.server import SimpleXMLRPCServer
-import xmlrpc.client
+import xmlrpclib
+from SimpleXMLRPCServer import SimpleXMLRPCServer
 
-def python_logo():
-    with open("python_logo.jpg", "rb") as handle:
-        return xmlrpc.client.Binary(handle.read())
+def today():
+#	today = datetime.datetime.today()
+#	return xmlrpc.client.DateTime(today)
+	return "today"
 
-server = SimpleXMLRPCServer(("localhost", 8000))
-print("Listening on port 8000...")
-server.register_function(python_logo, 'python_logo')
+def test():
+	return "hello"
 
+host = "0.0.0.0"
+port = 8000
+server = SimpleXMLRPCServer((host, port))
+print("Listening on port " + str(port) + "...")
+
+server.register_function(today, "today")
+server.register_function(test, "test")
 server.serve_forever()
 
