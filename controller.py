@@ -1,6 +1,48 @@
+
 import yamaha
 import queue
 import threading
+
+#------------------------------------------------------------------------------
+
+codes = [
+    ('SYS:MODELNAME', '?'),
+    ('SYS:VERSION', '?'),
+    ('SYS:INPNAME', '?'),
+    ('SYS:INPNAMExxx', '?'), # xxx=HDMI1-5 AV1-6 VAUX AUDIO1-6 DOCK USB
+    ('SYS:PWR', 'On'),
+    ('SYS:REMOTECODE', 'hexcode'),
+
+    ('MAIN:AVAIL', '?'),
+    ('MAIN:ZONENAME', '?'),
+    ('MAIN:SCENENAME', '?'),
+
+
+    ('MAIN:PWR', 'On'),
+    ('MAIN:SLEEP', ''), # Off 30 min 60 min 90 min
+    ('MAIN:VOL', 'Up'), # Up Down 1 dB
+    ('MAIN:MUTE', 'Ons'), # On Off Att -40 dB On/Off (toggle)
+    ('MAIN:MAXVOL', ''), # -20 dB
+    ('MAIN:INITVOLMODE', 'On'),
+    ('MAIN:INITVOLLVL', ''), #-40 dB
+
+    ('MAIN:INP', ''), # same as INPNAME
+
+    ('MAIN:DECODERSEL', ''),
+    ('MAIN:SCENE', ''),
+    ('MAIN:SPTREBLE', ''),
+    ('MAIN:SPBASS', ''),
+    ('MAIN:PUREDIRMODE', ''),
+    ('MAIN:ADAPTIVEDRC', ''),
+    ('MAIN:HDMIRESOL', ''),
+    ('MAIN:STRAIGHT', ''),
+    ('MAIN:ENHANCER', ''),
+    ('MAIN:SOUNDPRG', ''), # Surround Decoder
+    ('MAIN:ADAPTIVEDSP', ''),
+    ('MAIN:3DCINEMA', ''),
+    ('MAIN:EXSURDECODER', ''),
+    ('MAIN:2CHDECODER', '')
+]
 
 class MyController():
     def __init__(self):

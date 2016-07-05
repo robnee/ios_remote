@@ -8,32 +8,36 @@ import re
 import socket
 
 
-MODELNAME="@SYS:MODELNAME"
+MODELNAME = "@SYS:MODELNAME"
+checkhost = "8.8.8.8"
+checkhost = "google.com"
+checkport = 80
 
 class yamaha:
-    def __init__(self, port):
+    def __init__(self, port, hostname=None):
         self.port = port
+        self.hostname = hostname
 
     def get_local_ip_address():
       ''' Returns the ip address running the python interpreter '''
       # connecting to a UDP address doesn't send packets
       s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-      s.connect(('google.com', 80))
+      s.connect((checkhost, checkport))
       
       return s.getsockname()[0]
 
     def check_connect(self):
         pass
 
-    def request(self, name, value):
+    def request(self, hostname, timeout, name, value):
         msg = name + "=" + value + "\r\n"
 
         try:
-            results = {}
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.25)
-            s.connect((self.receiver_ip, self.port))
+            s.settimeout(timeout)
+            s.connect((hostname, self.port))
         except:
+            print("cant connect to", hostname, "on", self.port)
             return None
 
         try:
@@ -45,15 +49,14 @@ class yamaha:
                 if(not data):
                     break
                 response = response + data.decode()
-            s.close ()
-            s = None
         except socket.timeout:
             pass
         except socket.error as msg:
+            return None
+        finally:
             s.close()
             s = None
-            print(msg)
-                        
+ 
         # decode data and check if response indicates error
         if (response == "@UNDEFINED\r\n"):
             return None
@@ -63,7 +66,7 @@ class yamaha:
         # Build a dict of the results
         p = re.compile(r"(.*)=(.*)\s*", re.IGNORECASE)
         for x in response.split("\r\n"):
-            if (x):
+            if(x):
                 m = p.match(x)
                 results[m.group(1)] = m.group(2)
         
@@ -72,7 +75,7 @@ class yamaha:
     def get(self, name):
         self.check_connect()
 
-        return self.request(name, '?')
+        return self.request(self.hostname, 0.10, name, '?')
     
     def put(self, name, value):
         self.check_connect()
@@ -83,7 +86,7 @@ class yamaha:
         if(results and name in results and results[name] == value):
             return results
         else:
-            return self.request(name, value)
+            return self.request(self.hostname, 0.10, name, value)
         
     def ping(self, hostname, timeout=4):
         try:
@@ -115,9 +118,9 @@ class yamaha:
             host_address[3] = str(start)
             hostname = '.'.join(host_address)
 
-            ret = self.ping(hostname, 1)
+            ret = self.ping(hostname, 0.5)
             if (ret):
-                self.receiver_ip = hostname
+                self.hostname = hostname
                 break
 
             start += 1
@@ -126,14 +129,14 @@ class yamaha:
 
 if __name__ == '__main__':    
     port = 50000
-    a = yamaha(port)
+    hostname = None
+    a = yamaha(port, hostname)
     a.discover()
-    print("receiver at ", a.receiver_ip)
+    print("receiver at ", a.hostname)
 
-    res = a.put("@MAIN:PWR", "On")
-    print("pwr", res)
-    
-    res = a.put("@MAIN:VOL", "Up")
-    print("vol", res)
+    print("pwr", a.put("@MAIN:PWR", "On"))
+    print("get vol", a.get("@MAIN:VOL"))
+    print("vol bad", a.put("@MAIN:VOL", 'Up 2 Db'))
+    print("vol good", a.put("@MAIN:VOL", 'Down 2 dB'))
 
 # ----------------------------------------------------------------------------
