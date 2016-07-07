@@ -23,10 +23,13 @@ class yamaha:
       # connecting to a UDP address doesn't send packets
       s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
       s.connect((checkhost, checkport))
+      print(checkhost, checkport)
       
       return s.getsockname()[0]
 
     def check_connect(self):
+        if self.hostname is None:
+            raise ValueError('no hostname')
         pass
 
     def request(self, hostname, timeout, name, value):
@@ -63,6 +66,7 @@ class yamaha:
 
         if __debug__: print(name, 'response:', response)
         #print('respons2:', data2.decode())
+        results = {}
         # Build a dict of the results
         p = re.compile(r"(.*)=(.*)\s*", re.IGNORECASE)
         for x in response.split("\r\n"):

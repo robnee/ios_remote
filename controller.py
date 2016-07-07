@@ -19,14 +19,14 @@ codes = [
 
 
     ('MAIN:PWR', 'On'),
-    ('MAIN:SLEEP', ''), # Off 30 min 60 min 90 min
-    ('MAIN:VOL', 'Up'), # Up Down 1 dB
-    ('MAIN:MUTE', 'Ons'), # On Off Att -40 dB On/Off (toggle)
-    ('MAIN:MAXVOL', ''), # -20 dB
+    ('MAIN:SLEEP', ''),  # Off 30 min 60 min 90 min
+    ('MAIN:VOL', 'Up'),  # Up Down 1 dB
+    ('MAIN:MUTE', 'Ons'),  # On Off Att -40 dB On/Off (toggle)
+    ('MAIN:MAXVOL', ''),  # -20 dB
     ('MAIN:INITVOLMODE', 'On'),
-    ('MAIN:INITVOLLVL', ''), #-40 dB
+    ('MAIN:INITVOLLVL', ''),  # -40 dB
 
-    ('MAIN:INP', ''), # same as INPNAME
+    ('MAIN:INP', ''),  # same as INPNAME
 
     ('MAIN:DECODERSEL', ''),
     ('MAIN:SCENE', ''),
@@ -37,20 +37,28 @@ codes = [
     ('MAIN:HDMIRESOL', ''),
     ('MAIN:STRAIGHT', ''),
     ('MAIN:ENHANCER', ''),
-    ('MAIN:SOUNDPRG', ''), # Surround Decoder
+    ('MAIN:SOUNDPRG', ''),  # Surround Decoder
     ('MAIN:ADAPTIVEDSP', ''),
     ('MAIN:3DCINEMA', ''),
     ('MAIN:EXSURDECODER', ''),
     ('MAIN:2CHDECODER', '')
 ]
 
+
 class MyController():
-    def __init__(self):
+    def __init__(self, hostname=None):
         self.receiver = yamaha.yamaha(port=50000)
-        self.receiver.discover()
-        print(self.receiver.get('@SYS:INPNAME'))
-        print(self.receiver.get('@MAIN:INP'))
-        print(self.receiver.get('@SYS:INPNAME'))
+        if hostname is None:
+            self.receiver.discover()
+            self.hostname = self.receiver.hostname
+        elif hostname == 'none':
+            self.hostname = None
+        else:
+            self.receiver.hostname = hostname
+      
+        print(self.hostname)
+
+        # print(self.receiver.get('@SYS:INPNAME'))
 
         self.q = queue.Queue()
         self.t = threading.Thread(target=lambda: self.worker())
@@ -58,7 +66,7 @@ class MyController():
         
     def put(self, name, value):
         self.q.put((name, value))
-        #print('add:', name, '=', value)
+        # print('add:', name, '=', value)
         
     def worker(self):
         print('working')
@@ -66,12 +74,21 @@ class MyController():
             item = self.q.get()
             if item is None:
                 break
+                
             name, value = item
-            self._put (name, value)
+            self._put(name, value)
             self.q.task_done()
         
     def _put(self, name, value):
-        return self.receiver.put(name, value)
+        if self.hostname is not None:
+            return self.receiver.put(name, value)
+        else:
+            print('put to null:', name, '=', value)
+            return name + '=' + value
         
     def _get(self, name):
-        return self.receiver.get(name)
+        if self.hostname is not None:
+            return self.receiver.get(name)
+        else:
+           print('put to null:', name, '=', value)
+           return name + '=' + value  

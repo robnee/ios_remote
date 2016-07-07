@@ -1,8 +1,16 @@
+'''
+Home Theater Remote Control System
+'''
+
 from scene import *
 import ui
 import sound
 import scene
 import controller
+
+
+hostname = 'none'
+
 
 class MyTarget:
     def __init__(self):
@@ -38,13 +46,15 @@ class MyTarget:
     
     def dispatch(self):
         sound.play_effect('8ve:8ve-tap-simple')
-        if self.action != None:
-            self.action()    
-
+        if self.action is not None:
+            self.action()
+        
     def touch_repeat(self, touch):
-        self.dispatch ()
+        print('repeat')
+        self.dispatch()
 
     def touch_ended(self, touch):
+        print('ended')
         self.remove_action('repeat')
 
 
@@ -84,52 +94,150 @@ class MyToggle(MyImgButton):
         self.toggle()
         MyImgButton.touch_ended(self, touch)
         
-        
-class MyPanel(ShapeNode):
-    def __init__(self, fill_color):
-        ShapeNode.__init__(self, path = ui.Path.rounded_rect(0, 0, 400, 200, 10),
-             fill_color=fill_color)
-        self.anchor_point = (0, 0)
-             
+
+class MyDispatch():
     def touch_began(self, touch):
+        print('MyDispatch.touch_began')
         for x in self.children:
-            #print('node frame:', x.frame)
-            #print('node position:', x.position)
-            #print('node origin:', x.frame.origin)
-            #print('touch location:', touch.location)
             if x.frame.contains_point(touch.location):
-                if isinstance(x, MyButton) or isinstance(x, MyTarget):
+                if isinstance(x, MyDispatch) or isinstance(x, MyTarget):
+                    touch.location = x.point_from_scene(touch.location)
                     x.touch_began(touch)
-                    return
+                    return True
+                    
+        return False
                     
     def touch_ended(self, touch):
+        print('MyDispatch.touch_ended')
         for x in self.children:
             if x.frame.contains_point(touch.location):
-                if isinstance(x, MyTarget):
+                if isinstance(x, MyDispatch) or isinstance(x, MyTarget):
+                    touch.location = x.point_from_scene(touch.location)
                     x.touch_ended(touch)
-                    return
+                    return True
                     
-class MyTitlebar(ShapeNode):
+        return False
+
+
+class MyPanel(ShapeNode, MyDispatch):
+    def __init__(self, size, fill_color):
+        path = ui.Path.rounded_rect(0, 0, size.w, size.h, 10)
+        path.line_width = 0
+        ShapeNode.__init__(self, path=path, fill_color=fill_color)
+        
+        self.anchor_point = (0, 0)
+             
+
+class MyTitlebar(ShapeNode, MyDispatch):
     def __init__(self, title, size, background_color):
-        ShapeNode.__init__(self, path=ui.Path.rect(0, 0, size.w, size.h), fill_color=background_color)
+        ShapeNode.__init__(self, path=ui.Path.rect(0, 0, size.w, size.h),
+                           fill_color=background_color)
         text = LabelNode(title)
         self.add_child(text)
-        self.z_position = 5
-                        
-class MyScene (Scene):
-    def setup(self):
-        self.controller = controller.MyController()
+        self.z_position = 1
+
+        power = MyImgButton('iow:power_256')
+        power.position = (-size.w/2 + 25, 0)
+        power.action = lambda: root.power_scene()
+        power.repeat = False
+        power.size = (40, 40)
+        self.add_child(power)
+
+class MyScene(Scene, MyDispatch):
+    def setup(self):   
+        path = ui.Path.rect(0, 0, self.size.w, self.size.h)
+        path.line_width = 0
+        self.background = ShapeNode(path=path, fill_color=self.background_color)
+        self.background.anchor_point = (0, 0)
+        self.background.z_position = -1
+        self.add_child(self.background)
         
-        self.background_color = '#222'
+    def touch_began(self, touch):
+        if not MyDispatch.touch_began(self, touch):
+            sound.play_effect('casino:CardSlide1')
+
+    def touch_ended(self, touch):
+        MyDispatch.touch_ended(self, touch)
+        
+class MyBlueScene(MyScene):
+    def setup(self):
+        self.background_color = (0, 0, 0.5, 0.5)
+        self.z_position = 1
+        MyScene.setup(self)
+
+    def touch_began(self, touch):
+        sound.play_effect('casino:ChipsStack4')
+        
+        parent = self.presenting_scene
+        if parent:
+            parent.change_scene(parent.power_off_scene)
+            
+            
+class MyPowerOffScene(MyScene):
+    def setup(self):
+        self.background_color = (0.5, 0, 0, 0.3)
+        self.z_position = 1
+
+        self.panel = MyPanel(Size(400, 300), 'grey')
+        self.panel.origin = self.panel.position = (self.size.w/2, 500)
+        self.add_child(self.panel)
+        
+        self.label = LabelNode('Yamaha')
+        self.label.position = (self.size.w, 20)
+        self.label.anchor_point = (0, 0)
+        self.panel.add_child(self.label)
+        
+        MyScene.setup(self)
+        
+    def touch_began(self, touch):
+        sound.play_effect('casino:ChipsStack4')
+        
+        parent = self.presenting_scene
+        if parent:
+            parent.change_scene(parent.blue_scene)
+
+                     
+class MyRootScene(MyScene):
+    def power_scene(self):
+        if not self.presented_scene:
+            self.run_action(
+                Action.sequence(
+                    Action.wait(0.1),
+                    Action.call(lambda: self.present_modal_scene(self.power_off_scene))
+                )
+            )
+
+    def change_scene(self, scene):
+        if self.presented_scene:
+            self.dismiss_modal_scene()
+            
+        self.run_action(
+            Action.sequence(
+                Action.wait(0.1),
+                Action.call(lambda: self.present_modal_scene(scene))
+            )
+        )
+  
+    def setup(self):
+        # disable stdout overlay
+        from objc_util import ObjCInstance
+        ObjCInstance(self.view).statusLabel().alpha = 0
+        
+        #for x in dir(ObjCInstance(self.view)):
+        #   if x[-1:] != '_':
+        #        print(x)
+        
+        self.controller = controller.MyController(hostname)
+        
+        #self.background_color = '#222'
         w, h = self.size
         
         title = MyTitlebar("Yamaha", Size(w, 50), (0.7, 0.7, 0.7, 0.7))
         title.position = (w / 2, h - 50/2)
         self.add_child(title)
         
-        block = MyButton('❌', ('Helvetica',40))
-        block.position = (w - 100, h - 50)
-        self.add_child(block)
+        self.power_off_scene = MyPowerOffScene()
+        self.blue_scene = MyBlueScene()
 
         self.label = LabelNode('Yamaha')
         self.label.position = (0, 20)
@@ -141,7 +249,7 @@ class MyScene (Scene):
         self.line2.anchor_point = (0, 0)
         self.add_child(self.line2)
 
-        self.panel = MyPanel('grey')
+        self.panel = MyPanel(Size(500, 200), 'grey')
         self.panel.origin = self.panel.position = (200, 500)
         self.add_child(self.panel)
 
@@ -160,38 +268,21 @@ class MyScene (Scene):
 
         n = MyImgButton('iow:chevron_up_256')
         n.position = (275, 50)
-        n.action = lambda : self.controller.put('@MAIN:VOL', 'Up')
+        n.action = lambda: self.controller.put('@MAIN:VOL', 'Up')
         self.panel.add_child(n)
 
         n = MyImgButton('iow:chevron_down_256')
         n.position = (350, 50)
-        n.action = lambda : self.controller.put('@MAIN:VOL', 'Down')
+        n.action = lambda: self.controller.put('@MAIN:VOL', 'Down')
         self.panel.add_child(n)
 
     def touch_began(self, touch):
-        #laser = SpriteNode('spc:LaserBlue9', position=self.ship.position, z_position=-1, parent=self)
-        #laser.run_action(Action.sequence(Action.move_by(0, 1000), Action.remove()))
         self.label.text = repr(touch.location)
-        for x in self.children:
-            if x.frame.contains_point(touch.location):            
-                if isinstance(x, MyPanel) or isinstance(x, MyButton):
-                    self.line2.text = repr(x.point_from_scene(touch.location))
-                    touch.location = x.point_from_scene(touch.location)
-                    x.touch_began(touch)
-                    return
-        
-        # unhandled
-        sound.play_effect('casino:CardSlide1')
+        super().touch_began(touch)
 
     def touch_ended(self, touch):
-        for x in self.children:
-            if x.frame.contains_point(touch.location):
-                if isinstance(x, MyPanel):
-                    touch.location = x.point_from_scene(touch.location)
-                    x.touch_ended(touch)
-                    return
-        
-#view = SceneView()
-#view.scene = MyScene()
-#view.present('fullscreen', hide_title_bar=True)
-run(MyScene(), LANDSCAPE)
+        print ('MyRootScene.touch_ended')
+        super().touch_ended(touch)
+
+root = MyRootScene()       
+run(root, LANDSCAPE)
