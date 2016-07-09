@@ -22,7 +22,7 @@ codes = [
     ('MAIN:SLEEP', ''),  # Off 30 min 60 min 90 min
     ('MAIN:VOL', 'Up'),  # Up Down 1 dB
     ('MAIN:MUTE', 'Ons'),  # On Off Att -40 dB On/Off (toggle)
-    ('MAIN:MAXVOL', ''),  # -20 dB
+    ('MAIN:MAXVOL', ''),  # -20 dB_
     ('MAIN:INITVOLMODE', 'On'),
     ('MAIN:INITVOLLVL', ''),  # -40 dB
 
