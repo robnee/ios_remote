@@ -9,12 +9,15 @@ TODO:
     move assets info to a separate config class
     add docstrings
     change title bar when changing pages
+    parameterize RemTVPage
 '''
 
 from scene import *
 import ui
 import sound
 import scene
+
+import config
 import controller
 
 
@@ -119,16 +122,16 @@ class MyDispatch():
 
 class MyLabelButton(ShapeNode, MyTarget):
     '''Button by combining LabelNode with target handling'''
-    def __init__(self, text, font, bgcolor=(0,0,0,0), size=None):
+    def __init__(self, text, font, bgcolor=(0,0,0,0), size=None, shadow=None):
         MyTarget.__init__(self)
         
-        l = LabelNode(text, font)
-        self.add_child(l)
+        self.label = LabelNode(text, font)
+        self.add_child(self.label)
 
-        sz = size if size else Size(l.size.w, l.size.w)
-        path = ui.Path.rounded_rect(0, 0, sz.w, sz.h, sz.w/10)
+        sz = size if size else Size(self.label.size.w, self.label.size.w)
+        path = ui.Path.rounded_rect(0, 0, sz.w, sz.h, sz.w / 10)
         path.line_width = 0
-        ShapeNode.__init__(self, path=path, fill_color=bgcolor)
+        ShapeNode.__init__(self, path=path, fill_color=bgcolor, shadow=shadow)
         
 
 class MyImgButton(SpriteNode, MyTarget):
@@ -141,6 +144,7 @@ class MyImgButton(SpriteNode, MyTarget):
 
 
 class MyToggle(MyImgButton):
+    '''Toggle button class'''
     def __init__(self, img_f, img_t):
         MyImgButton.__init__(self, img_f)
         self.repeat = False
@@ -164,6 +168,7 @@ class MyToggle(MyImgButton):
 
 
 class MyScene(MyDispatch, Scene):
+    '''Scene subclass that supports dispatch'''
     def setup(self):
         path = ui.Path.rect(0, 0, self.size.w, self.size.h)
         path.line_width = 0
@@ -181,6 +186,7 @@ class MyScene(MyDispatch, Scene):
             
 
 class MyPanel(ShapeNode, MyDispatch):
+    '''A panel for grouping targets.  supports dispatch'''
     def __init__(self, size, fill_color):
         path = ui.Path.rounded_rect(0, 0, size.w, size.h, 10)
         path.line_width = 0
@@ -191,28 +197,41 @@ class MyPanel(ShapeNode, MyDispatch):
         
              
 # -------------------------------------------------------------------------
+# These functions are the actual remote control implementation
 # -------------------------------------------------------------------------
 
 TITLE_H = 50
 
 
 class RemTitlebar(ShapeNode, MyDispatch):
+    '''Title bar with power off button'''
     def __init__(self, title, size, background_color):
-        ShapeNode.__init__(self, path=ui.Path.rect(0, 0, size.w, TITLE_H),
+        ShapeNode.__init__(self, path=ui.Path.rect(0, 0, size.w, size.h),
                            fill_color=background_color)
         text = LabelNode(title)
         self.add_child(text)
         self.z_position = 10
 
         power = MyImgButton('iow:power_256')
-        power.position = (-size.w / 2 + 25, 0)
+        power.position = (-size.w / 2 + size.h / 2, 0)
         power.action = lambda: root.change_scene(root.power_off_scene)
         power.repeat = False
         power.size = (40, 40)  # make constants from these?
+        
         self.add_child(power)
+        
+        n = MyImgButton('iow:ios7_undo_256')
+        n.position = (-250, 0)
+        n.action = lambda: root.change_page('POWERON')
+        n.repeat = False
+        n.size = (40, 40)
+        self.add_child(n)
+        
+        
         
         
 class MyPage(MyDispatch, SpriteNode):
+    '''Base class for pages for the remote'''
     def __init__(self, size):
         self.size = (size.w, size.h - TITLE_H)
         self.position = (0, 0)
@@ -222,6 +241,7 @@ class MyPage(MyDispatch, SpriteNode):
         
 
 class RemPowerOffScene(MyScene):
+    '''Modal scene for power off confirmation'''
     def setup(self):
         self.background_color = (0.4, 0, 0, 0.3)
         self.z_position = 1
@@ -253,11 +273,13 @@ class RemPowerOffScene(MyScene):
 
 
 class RemPowerOnPage(MyPage):
+    '''home screen for choosing activity'''
     def setup(self):
         self.color = (0.2, 0.2, 0.2, 0.2)
         self.z_position = 1
         
-        size = Size(600, 300)
+        w, h = 600, 300
+        size = Size(w, h)
         self.panel = p = MyPanel(size, 'grey')
         self.panel.origin = self.panel.position = ((self.size.w - size.w) / 2, (self.size.h - size.h) / 2)
         self.add_child(self.panel)
@@ -268,9 +290,9 @@ class RemPowerOnPage(MyPage):
             ('WII', 'Wii', 'iow:game_controller_b_256'),
             ('BLUE', 'Bluray', 'iow:disc_256')
         ]
-        x = 0
+        margin = w / 8
+        x = margin
         for page_id, label, icon in assets:
-            x += 125
             n = MyImgButton(icon)
             n.size = (120, 120)
             n.position = (x, size.h / 2 + 20)
@@ -278,58 +300,133 @@ class RemPowerOnPage(MyPage):
             p.add_child(n)
             
             l = LabelNode(label, ('Helvetica', 30))
-            l.position = (x, size.h/2 - 120/2)
-            l.action = lambda: root.change_page(page_id)
+            l.position = (x, size.h / 2 - 120 / 2)
+            l.action = lambda id=page_id: root.change_page(id)
             p.add_child(l)
+            
+            x+= margin * 2
 
 
 class RemTVPage(MyPage):
+    '''Page for broascast/cable TV activity'''
     def setup(self):
+        self.panel = None
+        
         self.color = (0.1, 0.1, 0.1)
         self.z_position = 1
-
-        side = min(self.size)
         
+        side = min(self.size)
         margin = side / 20
-        menu = MyPanel(Size(side * 0.9, TITLE_H), 'grey')
-        menu.position = (margin, self.size.h - margin - TITLE_H)
-        self.add_child(menu)
+        
+        font = ('Arial Rounded MT Bold', 20)
+        self.menu = RemMenuPanel(Size(side * 0.9, TITLE_H), 'grey')
+        self.menu.position = (margin, self.size.h - margin - TITLE_H)
+        
+        self.assets = [
+            ('BCAST', 'Broadcast', 'darkblue', 90),
+            ('NEWS', 'News', 'darkred', 90),
+            ('ENTER', 'Entertainment', 'purple', 90),
+            ('SPORTS', 'Sports', 'green', 90),
+            ('MOVIES', 'Movies', 'goldenrod', 90)
+        ]
+
+        # create menu labels and add to menu
+        for a in self.assets:
+            id, title, color, sz = a                       
+            c = MyLabelButton(title, font)
+            c.color = 'lightgrey'
+            c.label_id = id
+            c.action = lambda panel_id=id: self.change_panel(panel_id)
+            self.menu.add_child(c)
+            
+        self.menu.layout()
+        self.add_child(self.menu)
     
         # volume panel
         vside = 200
-        self.panel = RemVolumePanel(Size(side * 0.4, vside), 'grey')
-        self.panel.origin = self.panel.position = (side/20, side/20)
-        self.add_child(self.panel)
+        self.vol = RemVolumePanel(Size(side * 0.4, vside), 'grey')
+        self.vol.origin = self.vol.position = (side / 20, side / 20)
+        self.add_child(self.vol)
         
         cside = min(side, self.size.h - margin * 4 - TITLE_H - vside)
-        
-        p = RemChannelPanel(Size(side * 0.9, cside), 'grey')
-        p.position = (margin, self.size.h - cside - TITLE_H - 2 * margin)
-        for i in range(20):
-            n = MyLabelButton('HBO ' + str(i), ('Helvetica', 20), 'gold', Size(90, 90))
-            p.add_child(n)
-        p.layout()
-        self.add_child(p)
 
+        self.panels = dict()
+
+        for a in self.assets:
+            id, title, color, sz  = a
+            self.panels[id] = p = RemChannelPanel(Size(side * 0.9, cside), 'grey')
+            p.position = (margin, self.size.h - cside - TITLE_H - 2 * margin)
+            p.alpha = 0
+        
+            for i in range(20):
+                n = MyLabelButton('CHAN ' + str(i), ('Arial Rounded MT Bold', 20), color, Size(sz, sz))
+                p.add_child(n)
+            p.layout()
+        
+        self.change_panel('NEWS')
+
+    def change_panel(self, panel_id):
+        panel = self.panels[panel_id]
+        print('panel to', panel, panel_id, self.panel)
+        if self.panel != panel:
+            # fade out and remove current panel
+            if self.panel is not None:
+                self.panel.run_action(
+                    Action.sequence(
+                        Action.fade_to(0, 0.25),
+                        Action.remove()
+                    )
+                )
+            
+            # load and fade in new panel   
+            self.panel = panel
+            self.panel.alpha = 0
+            self.add_child(panel)
+            self.panel.run_action(Action.fade_to(1, 0.25))
+            
+            # update menu hilight
+            for n in self.menu.children:
+                if n.label_id == panel_id:
+                    n.label.color = 'white'
+                else:
+                    n.label.color = 'lightgrey'
+
+
+class RemMenuPanel(MyPanel):
+    '''menu bar to select active channel panel'''
+    def __init__(self, size, color):
+        super().__init__(size, color)
+        
+    def layout(self):
+        '''position node children in a grid'''
+
+        # width of all menu items
+        menu_width = 0
+        for c in self.children:
+            menu_width += c.size.w
+    
+        # compute margin between buttons
+        ws = self.size.w - menu_width
+        margin = ws / len(self.children)
+        
+        # perform layout
+        x = margin / 2
+        y = self.size.h / 2
+        print(x,y,menu_width,ws,margin)
+        for c in self.children:
+            c.origin = c.position = (x + c.size.w/2, y)
+            x += c.size.w + margin
+    
 
 class RemVolumePanel(MyPanel):
     '''volume and audio controls'''
     def __init__(self, size, color):
         super().__init__(size, color)
-
-        n = MyLabelButton('▶️', ('Helvetica', 80))
-        n.position = (50, 50)
-        n.action = lambda: root.change_page('BLUE')
-        self.add_child(n)
         
         w, h = self.size
-        n = MyLabelButton('🔵', ('Helvetica', 80))
-        n.position = (50, h - 50)
-        n.action = lambda: root.change_page('POWERON')
-        self.add_child(n)
-        
+
         n = MyToggle('iow:volume_low_256', 'iow:volume_mute_256')
-        n.position = (w/2, 50)
+        n.position = (w / 2, 50)
         self.add_child(n)
 
         n = MyImgButton('iow:chevron_up_256')
@@ -371,6 +468,7 @@ class RemChannelPanel(MyPanel):
         
         
 class RemBluePage(MyPage):
+    '''bluray page'''
     def setup(self):
         self.color = (0, 0, 0.5, 0.5)
         self.z_position = 1
@@ -381,11 +479,41 @@ class RemBluePage(MyPage):
 
     def touch_began(self, touch):
         sound.play_effect('casino:ChipsStack4')
-        print('blue')
-        root.change_page('TV')
+        root.change_page('POWERON')
 
-      
+
+class RemWiiPage(MyPage):
+    '''Wii game page'''
+    def setup(self):
+        self.color = (0, 0.4, 0)
+        self.z_position = 1
+        
+        self.panel = MyPanel(Size(300, 200), 'grey')
+        self.panel.origin = self.panel.position = (300, 400)
+        self.add_child(self.panel)
+
+    def touch_began(self, touch):
+        sound.play_effect('casino:ChipsStack4')
+        root.change_page('POWERON')
+
+
+class RemAppleTVPage(MyPage):
+    '''Wii game page'''
+    def setup(self):
+        self.color = (0.4, 0.4, 0)
+        self.z_position = 1
+        
+        self.panel = MyPanel(Size(300, 200), 'grey')
+        self.panel.origin = self.panel.position = (300, 400)
+        self.add_child(self.panel)
+
+    def touch_began(self, touch):
+        sound.play_effect('casino:ChipsStack4')
+        root.change_page('POWERON')
+
+
 class RemRootScene(MyScene):
+    '''main Scene of remote app.  Receives and dispatches touch events'''
     def setup(self):
         self.disable_status()
         
@@ -396,11 +524,12 @@ class RemRootScene(MyScene):
         self.page = None
         self.controller = controller.MyController(hostname)
         
-        # self.background_color = '#222'
         w, h = self.size
-        
-        title = RemTitlebar("Yamaha", self.size, (0.7, 0.7, 0.7, 0.7))
-        title.position = (w / 2, h - 50 / 2)
+
+        title_height = config.titlebar.height
+        title = RemTitlebar(config.titlebar.title, Size(w, title_height),
+            config.titlebar.color)
+        title.position = (w / 2, h - title_height / 2)
         self.add_child(title)
         
         self.power_off_scene = RemPowerOffScene()
@@ -409,21 +538,12 @@ class RemRootScene(MyScene):
         self.pages['POWERON'] = RemPowerOnPage(self.size)
         self.pages['BLUE'] = RemBluePage(self.size)
         self.pages['TV'] = RemTVPage(self.size)
-
-        self.label = LabelNode('Yamaha')
-        self.label.position = (0, 20)
-        self.label.anchor_point = (0, 0)
-        self.add_child(self.label)
-
-        self.line2 = LabelNode('Yamaha')
-        self.line2.position = (0, 40)
-        self.line2.anchor_point = (0, 0)
-        self.add_child(self.line2)
-
-        self.change_page('POWERON')
+        self.pages['WII'] = RemWiiPage(self.size)
+        self.pages['APPLETV'] = RemAppleTVPage(self.size)
+        
+        self.change_page(config.startup_page)
         
     def touch_began(self, touch):
-        self.label.text = repr(touch.location)
         handled = super().touch_began(touch)
         print('handled', handled)
         
@@ -442,6 +562,8 @@ class RemRootScene(MyScene):
                     Action.remove()
                 )
             )
+            
+        # fade in new page
         self.page = page
         self.page.alpha = 0
         self.add_child(page)
@@ -456,9 +578,11 @@ class RemRootScene(MyScene):
         scene.alpha = 0
         self.present_modal_scene(scene)
         scene.run_action(Action.fade_to(1, 0.25, TIMING_EASE_IN))
-        
+
 
 if __name__ == '__main__':
+    config = config.get_config()
+    
     root = RemRootScene()
     # orientation no longer really works
     run(root, orientation=LANDSCAPE)
