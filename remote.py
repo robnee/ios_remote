@@ -10,6 +10,7 @@ TODO:
     add docstrings
     change title bar when changing pages
     parameterize RemTVPage
+    add a controller connection indicatior
 '''
 
 from scene import *
@@ -200,45 +201,6 @@ class MyPanel(ShapeNode, MyDispatch):
 # These functions are the actual remote control implementation
 # -------------------------------------------------------------------------
 
-TITLE_H = 50
-
-
-class RemTitlebar(ShapeNode, MyDispatch):
-    '''Title bar with power off button'''
-    def __init__(self, title, size, background_color):
-        ShapeNode.__init__(self, path=ui.Path.rect(0, 0, size.w, size.h),
-                           fill_color=background_color)
-        text = LabelNode(title)
-        self.add_child(text)
-        self.z_position = 10
-
-        power = MyImgButton('iow:power_256')
-        power.position = (-size.w / 2 + size.h / 2, 0)
-        power.action = lambda: root.change_scene(root.power_off_scene)
-        power.repeat = False
-        power.size = (40, 40)  # make constants from these?
-        
-        self.add_child(power)
-        
-        n = MyImgButton('iow:ios7_undo_256')
-        n.position = (-250, 0)
-        n.action = lambda: root.change_page('POWERON')
-        n.repeat = False
-        n.size = (40, 40)
-        self.add_child(n)
-        
-        
-        
-        
-class MyPage(MyDispatch, SpriteNode):
-    '''Base class for pages for the remote'''
-    def __init__(self, size):
-        self.size = (size.w, size.h - TITLE_H)
-        self.position = (0, 0)
-        self.anchor_point = (0, 0)
-        
-        self.setup()
-        
 
 class RemPowerOffScene(MyScene):
     '''Modal scene for power off confirmation'''
@@ -271,6 +233,45 @@ class RemPowerOffScene(MyScene):
         else:
             root.dismiss_modal_scene()
 
+
+class RemTitlebar(ShapeNode, MyDispatch):
+    '''Title bar with power off button'''
+    def __init__(self, size):
+        path=ui.Path.rect(0, 0, size.w, config.titlebar.height)
+        ShapeNode.__init__(self, path, fill_color=config.titlebar.color)
+
+        self.position = (size.w / 2, size.h - config.titlebar.height / 2)
+        
+        text = LabelNode(config.titlebar.title)
+        self.add_child(text)
+        self.z_position = 10
+        
+        side = config.titlebar.button_size
+        power = MyImgButton(config.titlebar.power_button)
+        power.position = (-size.w / 2 + config.titlebar.height / 2, 0)
+        power.action = lambda: root.change_scene(root.power_off_scene)
+        power.repeat = False
+        power.size = (side, side)  # make constants from these?
+        
+        self.add_child(power)
+        
+        n = MyImgButton(config.titlebar.back_button)
+        n.position = (-250, 0)
+        n.action = lambda: root.change_page('POWERON')
+        n.repeat = False
+        n.size = (side, side)
+        self.add_child(n)
+
+        
+class MyPage(MyDispatch, SpriteNode):
+    '''Base class for pages for the remote'''
+    def __init__(self, size):
+        self.size = (size.w, size.h - config.titlebar.height)
+        self.position = (0, 0)
+        self.anchor_point = (0, 0)
+        
+        self.setup()
+        
 
 class RemPowerOnPage(MyPage):
     '''home screen for choosing activity'''
@@ -312,15 +313,16 @@ class RemTVPage(MyPage):
     def setup(self):
         self.panel = None
         
-        self.color = (0.1, 0.1, 0.1)
+        self.color = config.tv.background_color
         self.z_position = 1
         
         side = min(self.size)
-        margin = side / 20
+        margin = side * config.tv.margin_pct / 100
         
-        font = ('Arial Rounded MT Bold', 20)
-        self.menu = RemMenuPanel(Size(side * 0.9, TITLE_H), 'grey')
-        self.menu.position = (margin, self.size.h - margin - TITLE_H)
+        mside = config.tv.menu_height
+        menu_color = config.tv.menu_color
+        self.menu = RemMenuPanel(Size(side - 2 * margin, mside), menu_color)
+        self.menu.position = (margin, self.size.h - margin - mside)
         
         self.assets = [
             ('BCAST', 'Broadcast', 'darkblue', 90),
@@ -331,10 +333,11 @@ class RemTVPage(MyPage):
         ]
 
         # create menu labels and add to menu
+        font = tuple(config.tv.menu_font)
         for a in self.assets:
             id, title, color, sz = a                       
             c = MyLabelButton(title, font)
-            c.color = 'lightgrey'
+            c.color = config.tv.menu_font_color
             c.label_id = id
             c.action = lambda panel_id=id: self.change_panel(panel_id)
             self.menu.add_child(c)
@@ -344,26 +347,26 @@ class RemTVPage(MyPage):
     
         # volume panel
         vside = 200
-        self.vol = RemVolumePanel(Size(side * 0.4, vside), 'grey')
-        self.vol.origin = self.vol.position = (side / 20, side / 20)
+        self.vol = RemVolumePanel(Size(side * 0.4, vside), menu_color)
+        self.vol.origin = self.vol.position = (margin, margin)
         self.add_child(self.vol)
         
-        cside = min(side, self.size.h - margin * 4 - TITLE_H - vside)
+        cside = min(side, self.size.h - margin * 4 - mside - vside)
 
         self.panels = dict()
 
         for a in self.assets:
-            id, title, color, sz  = a
-            self.panels[id] = p = RemChannelPanel(Size(side * 0.9, cside), 'grey')
-            p.position = (margin, self.size.h - cside - TITLE_H - 2 * margin)
+            id, title, button_color, sz  = a
+            self.panels[id] = p = RemChannelPanel(Size(side - 2 * margin, cside), menu_color)
+            p.position = (margin, self.size.h - cside - mside - 2 * margin)
             p.alpha = 0
         
             for i in range(20):
-                n = MyLabelButton('CHAN ' + str(i), ('Arial Rounded MT Bold', 20), color, Size(sz, sz))
+                n = MyLabelButton('CHAN ' + str(i), ('Arial Rounded MT Bold', 20), button_color, Size(sz, sz))
                 p.add_child(n)
             p.layout()
         
-        self.change_panel('NEWS')
+        self.change_panel(config.tv.startup_panel)
 
     def change_panel(self, panel_id):
         panel = self.panels[panel_id]
@@ -378,7 +381,7 @@ class RemTVPage(MyPage):
                     )
                 )
             
-            # load and fade in new panel   
+            # load and fade in new panel
             self.panel = panel
             self.panel.alpha = 0
             self.add_child(panel)
@@ -387,9 +390,9 @@ class RemTVPage(MyPage):
             # update menu hilight
             for n in self.menu.children:
                 if n.label_id == panel_id:
-                    n.label.color = 'white'
+                    n.label.color = config.tv.menu_select_color
                 else:
-                    n.label.color = 'lightgrey'
+                    n.label.color = config.tv.menu_font_color
 
 
 class RemMenuPanel(MyPanel):
@@ -412,9 +415,8 @@ class RemMenuPanel(MyPanel):
         # perform layout
         x = margin / 2
         y = self.size.h / 2
-        print(x,y,menu_width,ws,margin)
         for c in self.children:
-            c.origin = c.position = (x + c.size.w/2, y)
+            c.origin = c.position = (x + c.size.w / 2, y)
             x += c.size.w + margin
     
 
@@ -451,13 +453,16 @@ class RemChannelPanel(MyPanel):
         
         # seek the proper snap grid
         for cols in range(1, 10):
+            # trunate rows to test
             rows = int(cols / aspect_ratio)
             if len(self.children) <= rows * cols:
                 break
+            # round rows to test
             rows = int(cols / aspect_ratio + 0.5)
             if len(self.children) <= rows * cols:
                 break
         
+        # Position children
         for i in range(len(self.children)):
             c = i % cols
             r = int(i / cols)
@@ -517,30 +522,24 @@ class RemRootScene(MyScene):
     def setup(self):
         self.disable_status()
         
-        # for x in dir(ObjCInstance(self.view)):
-        #   if x[-1:] != '_':
-        #        print(x)
-        
-        self.page = None
+        # set up controller communications
         self.controller = controller.MyController(hostname)
-        
-        w, h = self.size
 
-        title_height = config.titlebar.height
-        title = RemTitlebar(config.titlebar.title, Size(w, title_height),
-            config.titlebar.color)
-        title.position = (w / 2, h - title_height / 2)
+        title = RemTitlebar(self.size)
         self.add_child(title)
         
         self.power_off_scene = RemPowerOffScene()
         
+        # set up page dict and instantiate page classes
         self.pages = dict()
-        self.pages['POWERON'] = RemPowerOnPage(self.size)
-        self.pages['BLUE'] = RemBluePage(self.size)
-        self.pages['TV'] = RemTVPage(self.size)
-        self.pages['WII'] = RemWiiPage(self.size)
-        self.pages['APPLETV'] = RemAppleTVPage(self.size)
-        
+        for page_id in config.pages:
+            page_name = config.pages[page_id]
+            class_name = config[page_name]['class_name']
+            class_ = globals()[class_name]
+            self.pages[page_id] = class_(self.size)
+         
+        # flip to startup page   
+        self.curr_page = None
         self.change_page(config.startup_page)
         
     def touch_began(self, touch):
@@ -552,22 +551,20 @@ class RemRootScene(MyScene):
         ObjCInstance(self.view).statusLabel().alpha = 0
                 
     def change_page(self, page_id):
-        page = self.pages[page_id]
-        print('current page', type(self.page).__name__)
-        print('new page', type(page).__name__)
-        if self.page is not None and self.page != page:
-            self.page.run_action(
+        new_page = self.pages[page_id]
+        if self.curr_page is not None and self.curr_page != new_page:
+            self.curr_page.run_action(
                 Action.sequence(
                     Action.fade_to(0, 0.25),
                     Action.remove()
                 )
             )
-            
+        
         # fade in new page
-        self.page = page
-        self.page.alpha = 0
-        self.add_child(page)
-        self.page.run_action(Action.fade_to(1, 0.25))
+        new_page.alpha = 0
+        self.curr_page = new_page
+        self.add_child(new_page)
+        self.curr_page.run_action(Action.fade_to(1, 0.25))
         
     def change_scene(self, scene):
         if self.presented_scene:
@@ -579,6 +576,12 @@ class RemRootScene(MyScene):
         self.present_modal_scene(scene)
         scene.run_action(Action.fade_to(1, 0.25, TIMING_EASE_IN))
 
+# --------------------------------------------------------------------------------
+
+def get_class(class_name):
+            page_info = self.pages[page_id]
+            class_name = page_info['class_name']
+            page_info['page'] = globals()[class_name](self.size)
 
 if __name__ == '__main__':
     config = config.get_config()

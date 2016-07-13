@@ -69,7 +69,6 @@ class MyController():
         # print('add:', name, '=', value)
         
     def worker(self):
-        print('working')
         while True:
             item = self.q.get()
             if item is None:
