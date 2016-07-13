@@ -1,2 +1,2 @@
-# yamaha
+# remote
 Python control of Yamaha receiver
