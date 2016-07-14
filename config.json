@@ -1,0 +1,88 @@
+{
+    "startup_page": "POWERON",
+        
+    "titlebar": {
+        "title": "Rob's Remote",
+        "height": 50,
+        "color": "grey",
+        "button_size": 40,
+        "power_button": "iow:power_256",
+        "back_button": "iow:ios7_undo_256"
+    },
+    
+    "pages": {
+        "POWERON": "poweron",
+        "BLUE": "blue",
+        "TV": "tv",
+        "WII": "wii",
+        "APPLETV": "appletv"
+    },
+
+    "volume": {
+        "mute_off_button": ["iow:volume_low_256", "@MAIN:MUTE", "On"],
+        "mute_on_button": ["iow:volume_mute_256", "@MAIN:MUTE", "Off"],
+        "vol_up_button": ["iow:chevron_up_256", "@MAIN:VOL", "Up"],
+        "vol_down_button": ["iow:chevron_down_256", "@MAIN:VOL", "Down"],
+        "button_size": 50,
+        "size": 200
+    },
+    
+    "poweron": {
+        "class_name": "RemPowerOnPage",
+        "background_color": [0.2, 0.2, 0.2, 0.2],
+        "size": [600, 300],
+        "panel_color": "grey",
+        "icon_size": 120,
+        "icon_font": ["Helvetica", 20],
+        "activities": [
+            ["TV", "iow:ios7_monitor_outline_256", "PAGE", "TV"],
+            ["\uF8FFTV", "iow:social_apple_outline_256", "PAGE", "APPLETV"],
+            ["Wii", "iow:game_controller_b_256", "PAGE", "wII"],
+            ["Bluray", "iow:disc_256", "PAGE", "BLUE"]
+        ]
+    },
+    "blue": {
+        "class_name": "RemBluePage"
+    },
+    "tv": {
+        "class_name": "RemTVPage",
+        "menu_height": 50,
+        "menu_color": "grey",
+        "menu_font": ["Arial Rounded MT Bold", 20],
+        "menu_label_color": "lightgrey",
+        "menu_select_color": "white",
+        "margin_pct": 5,
+        "background_color": [0.1, 0.1, 0.1],
+        "startup_panel": "NEWS",
+        "channel_size": 90,
+        "channel_font": ["Arial Rounded MT Bold", 20],
+        "panels": {
+            "BCAST": {
+                "title": "Broadcast",
+                "color": "darkblue"
+            },
+            "NEWS": {
+                "title": "News",
+                "color": "darkred"
+            },
+            "ENTER": {
+                "title": "Entertainment",
+                "color": "purple"
+            },
+            "SPORTS": {
+                "title": "Sports",
+                "color": "green"
+            },
+            "MOVIES": {
+                "title": "Movies",
+                "color": "goldenrod"
+            }
+        }
+    },
+    "wii": {
+        "class_name": "RemWiiPage"
+    },
+    "appletv": {
+        "class_name": "RemAppleTVPage"
+    }
+}

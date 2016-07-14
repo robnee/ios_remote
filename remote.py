@@ -15,8 +15,10 @@ TODO:
 
 from scene import *
 import ui
+import json
 import sound
 import scene
+import codecs
 
 import config
 import controller
@@ -63,7 +65,6 @@ class MyTarget:
         self.dispatch()
     
     def dispatch(self):
-        print('pos:', self.position)
         sound.play_effect('8ve:8ve-tap-simple')
         if self.action is not None:
             self.action()
@@ -73,7 +74,6 @@ class MyTarget:
         # if this is still a touch in flight. if not fade up. Attempting
         # to mess with the action from inside a callback is fatal though.
         if touch.touch_id in root.touches:
-            print(touch, len(root.touches), root.touches)
             self.dispatch()
         else:
             self.fade_up()
@@ -98,13 +98,11 @@ class MyTarget:
 class MyDispatch():
     '''Base class for collection of MyTarget classes. handles dispatch to targets'''
     def touch_began(self, touch):
-        print('MyDispatch.touch_began', type(self).__name__, touch.location, len(self.children))
         for x in self.children:
             if x.frame.contains_point(touch.location):
                 if isinstance(x, MyDispatch) or isinstance(x, MyTarget):
                     touch.location = x.point_from_scene(touch.location)
                     x.touch_began(touch)
-                    print(type(x).__name__)
                     return True
                     
         return False
@@ -276,33 +274,30 @@ class MyPage(MyDispatch, SpriteNode):
 class RemPowerOnPage(MyPage):
     '''home screen for choosing activity'''
     def setup(self):
-        self.color = (0.2, 0.2, 0.2, 0.2)
+        self.color = config.poweron.background_color
         self.z_position = 1
         
-        w, h = 600, 300
+        w, h = config.poweron.size
         size = Size(w, h)
-        self.panel = p = MyPanel(size, 'grey')
+        self.panel = p = MyPanel(size, config.poweron.panel_color)
         self.panel.origin = self.panel.position = ((self.size.w - size.w) / 2, (self.size.h - size.h) / 2)
         self.add_child(self.panel)
-        
-        assets = [
-            ('TV', 'TV', 'iow:ios7_monitor_outline_256'),
-            ('APPLETV', 'TV', 'iow:social_apple_outline_256'),
-            ('WII', 'Wii', 'iow:game_controller_b_256'),
-            ('BLUE', 'Bluray', 'iow:disc_256')
-        ]
-        margin = w / 8
+
+        margin = w / len(config.poweron.activities) / 2
+        icon_size = config.poweron.icon_size
+        icon_font = tuple(config.poweron.icon_font)
+
         x = margin
-        for page_id, label, icon in assets:
+        for label, icon, cmd, arg in config.poweron.activities:
             n = MyImgButton(icon)
-            n.size = (120, 120)
+            n.size = (icon_size, icon_size)
             n.position = (x, size.h / 2 + 20)
-            n.action = lambda id=page_id: root.change_page(id)
+            n.action = lambda id=arg: root.change_page(id)
             p.add_child(n)
             
-            l = LabelNode(label, ('Helvetica', 30))
-            l.position = (x, size.h / 2 - 120 / 2)
-            l.action = lambda id=page_id: root.change_page(id)
+            l = LabelNode(label, icon_font)
+            l.position = (x, size.h / 2 - icon_size / 2)
+            l.action = lambda id=arg: root.change_page(id)
             p.add_child(l)
             
             x+= margin * 2
@@ -323,30 +318,22 @@ class RemTVPage(MyPage):
         menu_color = config.tv.menu_color
         self.menu = RemMenuPanel(Size(side - 2 * margin, mside), menu_color)
         self.menu.position = (margin, self.size.h - margin - mside)
-        
-        self.assets = [
-            ('BCAST', 'Broadcast', 'darkblue', 90),
-            ('NEWS', 'News', 'darkred', 90),
-            ('ENTER', 'Entertainment', 'purple', 90),
-            ('SPORTS', 'Sports', 'green', 90),
-            ('MOVIES', 'Movies', 'goldenrod', 90)
-        ]
 
         # create menu labels and add to menu
         font = tuple(config.tv.menu_font)
-        for a in self.assets:
-            id, title, color, sz = a                       
+        for panel_id in config.tv.panels:
+            title = config.tv.panels[panel_id]['title']                   
             c = MyLabelButton(title, font)
-            c.color = config.tv.menu_font_color
-            c.label_id = id
-            c.action = lambda panel_id=id: self.change_panel(panel_id)
+            c.color = config.tv.menu_label_color
+            c.label_id = panel_id
+            c.action = lambda panel_id=panel_id: self.change_panel(panel_id)
             self.menu.add_child(c)
             
         self.menu.layout()
         self.add_child(self.menu)
     
         # volume panel
-        vside = 200
+        vside = config.volume.size
         self.vol = RemVolumePanel(Size(side * 0.4, vside), menu_color)
         self.vol.origin = self.vol.position = (margin, margin)
         self.add_child(self.vol)
@@ -355,14 +342,16 @@ class RemTVPage(MyPage):
 
         self.panels = dict()
 
-        for a in self.assets:
-            id, title, button_color, sz  = a
+        channel_size = config.tv.channel_size
+        channel_font = tuple(config.tv.channel_font)
+        for id in config.tv.panels:
+            channel_color = config.tv.panels[id]['color']
             self.panels[id] = p = RemChannelPanel(Size(side - 2 * margin, cside), menu_color)
             p.position = (margin, self.size.h - cside - mside - 2 * margin)
             p.alpha = 0
         
             for i in range(20):
-                n = MyLabelButton('CHAN ' + str(i), ('Arial Rounded MT Bold', 20), button_color, Size(sz, sz))
+                n = MyLabelButton('CHAN ' + str(i), channel_font, channel_color, Size(channel_size, channel_size))
                 p.add_child(n)
             p.layout()
         
@@ -392,7 +381,7 @@ class RemTVPage(MyPage):
                 if n.label_id == panel_id:
                     n.label.color = config.tv.menu_select_color
                 else:
-                    n.label.color = config.tv.menu_font_color
+                    n.label.color = config.tv.menu_label_color
 
 
 class RemMenuPanel(MyPanel):
@@ -426,19 +415,24 @@ class RemVolumePanel(MyPanel):
         super().__init__(size, color)
         
         w, h = self.size
-
-        n = MyToggle('iow:volume_low_256', 'iow:volume_mute_256')
-        n.position = (w / 2, 50)
+        button_size = config.volume.button_size
+        
+        img0, cmd0, arg0 = config.volume.mute_off_button
+        img1, cmd1, arg1 = config.volume.mute_on_button
+        n = MyToggle(img0, img1)
+        n.position = (w / 2, button_size)
+        self.add_child(n)
+        
+        img, cmd, arg = config.volume.vol_up_button
+        n = MyImgButton(img)
+        n.position = (w - button_size, h - button_size)
+        n.action = lambda c=cmd, a=arg: root.controller.put(c, a)
         self.add_child(n)
 
-        n = MyImgButton('iow:chevron_up_256')
-        n.position = (w - 50, h - 50)
-        n.action = lambda: root.controller.put('@MAIN:VOL', 'Up')
-        self.add_child(n)
-
-        n = MyImgButton('iow:chevron_down_256')
-        n.position = (w - 50, 50)
-        n.action = lambda: root.controller.put('@MAIN:VOL', 'Down')
+        img, cmd, arg = config.volume.vol_down_button
+        n = MyImgButton(img)
+        n.position = (w - button_size, button_size)
+        n.action = lambda c=cmd, a=arg: root.controller.put(c, a)
         self.add_child(n)
         
          
@@ -458,7 +452,7 @@ class RemChannelPanel(MyPanel):
             if len(self.children) <= rows * cols:
                 break
             # round rows to test
-            rows = int(cols / aspect_ratio + 0.5)
+            rows = round(cols / aspect_ratio)
             if len(self.children) <= rows * cols:
                 break
         
@@ -578,13 +572,16 @@ class RemRootScene(MyScene):
 
 # --------------------------------------------------------------------------------
 
-def get_class(class_name):
-            page_info = self.pages[page_id]
-            class_name = page_info['class_name']
-            page_info['page'] = globals()[class_name](self.size)
+def get_config(filename):
+    '''read json config file'''
+        
+    # load config from json file
+    with open('config.json') as fp:
+        return config.RemConfig(json.load(fp))
+
 
 if __name__ == '__main__':
-    config = config.get_config()
+    config = get_config('config.json')
     
     root = RemRootScene()
     # orientation no longer really works
