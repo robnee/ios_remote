@@ -7,7 +7,11 @@
         "color": "grey",
         "button_size": 40,
         "power_button": "iow:power_256",
-        "back_button": "iow:ios7_undo_256"
+        "back_button": "iow:ios7_undo_256",
+        "power_position": 25,
+        "back_position": 100,
+        "battery_position": -100,
+        "connection_position": -25
     },
     
     "pages": {
@@ -42,7 +46,8 @@
         ]
     },
     "blue": {
-        "class_name": "RemBluePage"
+        "class_name": "RemBluePage",
+        "background_color": [0, 0, 0.5, 0.5]
     },
     "tv": {
         "class_name": "RemTVPage",
@@ -51,6 +56,7 @@
         "menu_font": ["Arial Rounded MT Bold", 20],
         "menu_label_color": "lightgrey",
         "menu_select_color": "white",
+        "menu_order": ["BCAST", "NEWS", "ENTER", "SPORTS", "MOVIES"],
         "margin_pct": 5,
         "background_color": [0.1, 0.1, 0.1],
         "startup_panel": "NEWS",
@@ -80,9 +86,11 @@
         }
     },
     "wii": {
-        "class_name": "RemWiiPage"
+        "class_name": "RemWiiPage",
+        "background_color": [0, 0.5, 0]
     },
     "appletv": {
-        "class_name": "RemAppleTVPage"
+        "class_name": "RemAppleTVPage",
+        "background_color": [0.5, 0, 0, 0.5]
     }
 }

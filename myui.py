@@ -162,10 +162,12 @@ class MyScene(MyDispatch, Scene):
 class MyPanel(ShapeNode, MyDispatch):
     '''A panel for grouping targets.  supports dispatch'''
     def __init__(self, size, fill_color):
-        path = ui.Path.rounded_rect(0, 0, size.w, size.h, 10)
-        path.line_width = 0
-        ShapeNode.__init__(self, path=path, fill_color=fill_color)
+        ShapeNode.__init__(self, fill_color=fill_color)
+        self.set_size(size)
         
-        self.size = size
         self.anchor_point = (0, 0)
         
+    def set_size(self, value):
+        self.path = ui.Path.rounded_rect(0, 0, value.w, value.h, 10)
+        self.path.line_width = 0
+        self.size = value
