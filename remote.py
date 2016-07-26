@@ -11,6 +11,7 @@ TODO:
     change title bar when changing pages
     parameterize RemTVPage
     add a controller connection indicatior
+    action on button down or button up?
 '''
 
 from scene import *
@@ -19,7 +20,6 @@ import ui
 import json
 import sound
 import scene
-import codecs
 
 import config
 import controller
@@ -71,19 +71,27 @@ class RemPowerOffScene(MyScene):
 
 
 class RemBatteryIndicator(SpriteNode):
-    def __init__(self):
+    def __init__(self, parent):
         SpriteNode.__init__(self, texture='iow:battery_empty_256', )
-        self.run_action(Action.sequence(
-            Action.wait(60),
-            Action.call(RemBatteryIndicator.update, 1.0)
+        self.run_action(Action.repeat(
+            Action.sequence(
+                Action.wait(60),
+                Action.call(RemBatteryIndicator.update, 1.0)
+            ),
+            0
         ))
+        
+        parent.add_child(self)
+        
         self.update(0)
         
     def update(self, progress):
+        # remember the size
+        size = self.size
         level = RemBatteryIndicator.get_battery_level()
         if level < 0.12:
             self.texture = Texture('iow:battery_empty_256')
-            self.color = '#cf0000'
+            self.color = cfg.titlebar.battery.alert_color
         elif level < 0.37:
             self.texture = Texture('iow:battery_low_256')
             self.color = 'white'
@@ -93,6 +101,7 @@ class RemBatteryIndicator(SpriteNode):
         else:
             self.texture = Texture('iow:battery_full_256')
             self.color = 'white'
+        self.size = size
         
     def get_battery_level():
         '''battery level (0 - 1)'''
@@ -108,61 +117,60 @@ class RemBatteryIndicator(SpriteNode):
 
     
 class RemConnectionIndicator(SpriteNode):
-    def __init__(self):
+    def __init__(self, parent):
         SpriteNode.__init__(self, texture='iow:radio_waves_256')
-        self.run_action(Action.sequence(
-            Action.wait(60),
-            Action.call(RemBatteryIndicator.update, 1.0)
-        ))
+        self.color = cfg.titlebar.connection.alert_color
         
-    def update(node, progress):
-        pass
+        parent.add_child(self)
         
-    def is_connected():
-        return True
+    def status_changed(self, status):
+        if status == 'connected':
+            self.color = 'white'
+        elif status == 'sending':
+            self.color = cfg.titlebar.connection.activity_color
+        elif status == 'disconnected':
+            self.color = cfg.titlebar.connection.alert_color
         
 
 class RemTitlebar(ShapeNode, MyDispatch):
     '''Title bar with power off button'''
-    def __init__(self, size):
-        path = ui.Path.rect(0, 0, size.w, config.titlebar.height)
-        ShapeNode.__init__(self, path, fill_color=config.titlebar.color)
+    def __init__(self, size, *args, **kwargs):
+        path = ui.Path.rect(0, 0, size.w, cfg.titlebar.height)
+        ShapeNode.__init__(self, path, fill_color=cfg.titlebar.color, *args, **kwargs)
 
-        self.position = (size.w / 2, size.h - config.titlebar.height / 2)
+        self.position = (size.w / 2, size.h - cfg.titlebar.height / 2)
         
-        text = LabelNode(config.titlebar.title)
+        text = LabelNode(cfg.titlebar.title)
         self.add_child(text)
         self.z_position = 10
         
-        side = config.titlebar.button_size
-        power = MyImgButton(config.titlebar.power_button)
-        power.position = (-size.w / 2 + config.titlebar.power_position, 0)
+        side = cfg.titlebar.button_size
+        power = MyImgButton(cfg.titlebar.power_button)
+        power.position = (-size.w / 2 + cfg.titlebar.power_position, 0)
         power.action = lambda: root.change_scene(root.power_off_scene)
         power.repeat = False
         power.size = (side, side)  # make constants from these?
         
         self.add_child(power)
         
-        n = MyImgButton(config.titlebar.back_button)
-        n.position = (-size.w / 2 + config.titlebar.back_position, 0)
+        n = MyImgButton(cfg.titlebar.back_button)
+        n.position = (-size.w / 2 + cfg.titlebar.back_position, 0)
         n.action = lambda: root.change_page('POWERON')
         n.repeat = False
         n.size = (side, side)
         self.add_child(n)
 
-        n = RemBatteryIndicator()
-        n.position = (-size.w / 2 + config.titlebar.battery_position, 0)
-        #n.action = lambda: root.change_page('POWERON')
+        n = RemBatteryIndicator(parent=self)
+        n.position = (-size.w / 2 + cfg.titlebar.battery_position, 0)
         n.size = (side, side)
-        self.add_child(n)
         
-        n = RemConnectionIndicator()
-        n.position = (-size.w / 2 + config.titlebar.connection_position, 0)
-        #n.action = lambda: root.change_page('POWERON')
-        n.size = (side, side)
-        self.add_child(n)
-        
+        self.conn = RemConnectionIndicator(parent=self)
+        self.conn.position = (-size.w / 2 + cfg.titlebar.connection_position, 0)
+        self.conn.size = (side, side)
+
         self.layout()
+
+        self.scene.controller.add_listener(self.conn.status_changed)
         
     def layout(self):
         '''adjust layout so children are visible'''
@@ -174,7 +182,7 @@ class RemTitlebar(ShapeNode, MyDispatch):
 class MyPage(MyDispatch, SpriteNode):
     '''Base class for pages for the remote'''
     def __init__(self, size):
-        self.size = (size.w, size.h - config.titlebar.height)
+        self.size = (size.w, size.h - cfg.titlebar.height)
         self.position = (0, 0)
         self.anchor_point = (0, 0)
         
@@ -184,24 +192,25 @@ class MyPage(MyDispatch, SpriteNode):
 class RemPowerOnPage(MyPage):
     '''home screen for choosing activity'''
     def setup(self):
-        self.color = config.poweron.background_color
+        self.color = cfg.poweron.background_color
         self.z_position = 1
         
-        w, h = config.poweron.size
+        w, h = cfg.poweron.size
         size = Size(w, h)
-        self.panel = p = MyPanel(size, config.poweron.panel_color)
+        self.panel = p = MyPanel(size, cfg.poweron.panel_color)
         self.panel.origin = self.panel.position = ((self.size.w - size.w) / 2, (self.size.h - size.h) / 2)
         self.add_child(self.panel)
 
-        margin = w / len(config.poweron.activities) / 2
-        icon_size = config.poweron.icon_size
-        icon_font = tuple(config.poweron.icon_font)
+        margin = w / len(cfg.poweron.activities) / 2
+        icon_size = cfg.poweron.icon_size
+        icon_font = tuple(cfg.poweron.icon_font)
 
+        label_offset = 20
         x = margin
-        for label, icon, cmd, arg in config.poweron.activities:
+        for label, icon, cmd, arg in cfg.poweron.activities:
             n = MyImgButton(icon)
             n.size = (icon_size, icon_size)
-            n.position = (x, size.h / 2 + 20)
+            n.position = (x, size.h / 2 + label_offset)
             n.action = lambda id=arg: root.change_page(id)
             p.add_child(n)
             
@@ -218,33 +227,33 @@ class RemTVPage(MyPage):
     def setup(self):
         self.panel = None
         
-        self.color = config.tv.background_color
+        self.color = cfg.tv.background_color
         self.z_position = 1
 
-        self.menu = RemMenuPanel(Size(0, 0), config.tv.menu_color)
+        self.menu = RemMenuPanel(Size(0, 0), cfg.tv.menu_color)
         self.add_child(self.menu)
 
         # create menu labels and add to menu
-        font = tuple(config.tv.menu_font)
-        for panel_id in config.tv.menu_order:
-            title = config.tv.panels[panel_id]['title']
+        font = tuple(cfg.tv.menu_font)
+        for panel_id in cfg.tv.menu_order:
+            title = cfg.tv.panels[panel_id]['title']
             c = MyLabelButton(title, font)
-            c.color = config.tv.menu_label_color
+            c.color = cfg.tv.menu_label_color
             c.label_id = panel_id
             c.action = lambda panel_id=panel_id: self.change_panel(panel_id)
             self.menu.add_child(c)
         
         # volume panel
-        self.vol = RemVolumePanel(Size(0, 0), config.tv.menu_color)
+        self.vol = RemVolumePanel(Size(0, 0), cfg.tv.menu_color)
         self.add_child(self.vol)
 
         self.panels = dict()
 
-        channel_size = config.tv.channel_size
-        channel_font = tuple(config.tv.channel_font)
-        for id in config.tv.panels:
-            channel_color = config.tv.panels[id]['color']
-            self.panels[id] = p = RemChannelPanel(Size(0, 0), config.tv.menu_color)
+        channel_size = cfg.tv.channel_size
+        channel_font = tuple(cfg.tv.channel_font)
+        for id in cfg.tv.panels:
+            channel_color = cfg.tv.panels[id]['color']
+            self.panels[id] = p = RemChannelPanel(Size(0, 0), cfg.tv.menu_color)
             p.alpha = 0
         
             for i in range(20):
@@ -253,21 +262,21 @@ class RemTVPage(MyPage):
                 
         self.did_change_size()
         
-        self.change_panel(config.tv.startup_panel)
+        self.change_panel(cfg.tv.startup_panel)
 
     def did_change_size(self):
         landscape = self.size.w > self.size.h
         
         side = min(self.size)
-        margin = side * config.tv.margin_pct / 100
+        margin = side * cfg.tv.margin_pct / 100
         
-        mside = config.tv.menu_height
+        mside = cfg.tv.menu_height
         self.menu.position = (margin, self.size.h - margin - mside)
         self.menu.set_size(Size(side - 2 * margin, mside))
         self.menu.layout()
         
         # Volume panel
-        vside = config.volume.size
+        vside = cfg.volume.size
         self.vol.position = (margin, margin)
         self.vol.set_size(Size(side * 0.4, vside))
         if landscape:
@@ -307,9 +316,9 @@ class RemTVPage(MyPage):
             # update menu hilight
             for n in self.menu.children:
                 if n.label_id == panel_id:
-                    n.label.color = config.tv.menu_select_color
+                    n.label.color = cfg.tv.menu_select_color
                 else:
-                    n.label.color = config.tv.menu_label_color
+                    n.label.color = cfg.tv.menu_label_color
 
 
 class RemMenuPanel(MyPanel):
@@ -343,26 +352,25 @@ class RemVolumePanel(MyPanel):
         super().__init__(size, color)
         
         w, h = self.size
-        button_size = config.volume.button_size
         
-        img0, cmd0, arg0 = config.volume.mute_off_button
-        img1, cmd1, arg1 = config.volume.mute_on_button
+        img0, cmd0, arg0 = cfg.volume.mute_off_button
+        img1, cmd1, arg1 = cfg.volume.mute_on_button
         self.mute = MyToggle(img0, img1)
         self.add_child(self.mute)
         
-        img, cmd, arg = config.volume.vol_up_button
+        img, cmd, arg = cfg.volume.vol_up_button
         self.vol_up = MyImgButton(img)
         self.vol_up.action = lambda c=cmd, a=arg: root.controller.put(c, a)
         self.add_child(self.vol_up)
 
-        img, cmd, arg = config.volume.vol_down_button
+        img, cmd, arg = cfg.volume.vol_down_button
         self.vol_down = MyImgButton(img)
         self.vol_down.action = lambda c=cmd, a=arg: root.controller.put(c, a)
         self.add_child(self.vol_down)
         
     def layout(self):
         w, h = self.size
-        button_size = config.volume.button_size
+        button_size = cfg.volume.button_size
 
         self.mute.position = (w / 2, button_size)
         self.vol_up.position = (w - button_size, h - button_size)
@@ -402,7 +410,7 @@ class RemChannelPanel(MyPanel):
 class RemBluePage(MyPage):
     '''bluray page'''
     def setup(self):
-        self.color = config.blue.background_color
+        self.color = cfg.blue.background_color
         self.z_position = 1
         
         self.panel = MyPanel(Size(300, 200), 'grey')
@@ -417,7 +425,7 @@ class RemBluePage(MyPage):
 class RemWiiPage(MyPage):
     '''Wii game page'''
     def setup(self):
-        self.color = config.wii.background_color
+        self.color = cfg.wii.background_color
         self.z_position = 1
         
         self.panel = MyPanel(Size(300, 200), 'grey')
@@ -432,7 +440,7 @@ class RemWiiPage(MyPage):
 class RemAppleTVPage(MyPage):
     '''Wii game page'''
     def setup(self):
-        self.color = config.appletv.background_color
+        self.color = cfg.appletv.background_color
         self.z_position = 1
         
         self.panel = MyPanel(Size(300, 200), 'grey')
@@ -452,27 +460,24 @@ class RemRootScene(MyScene):
         # set up controller communications
         self.controller = controller.MyController(hostname)
 
-        title = RemTitlebar(self.size)
-        self.add_child(title)
+        self.titlebar = RemTitlebar(self.size, parent=self)
         
         self.power_off_scene = RemPowerOffScene()
         
         # set up page dict and instantiate page classes
         self.pages = dict()
-        for page_id in config.pages:
-            page_name = config.pages[page_id]
-            class_name = config[page_name]['class_name']
+        for page_id in cfg.pages:
+            page_name = cfg.pages[page_id]
+            class_name = cfg[page_name]['class_name']
             class_ = globals()[class_name]
             self.pages[page_id] = class_(self.size)
          
+        self.controller.connect()
+        
         # flip to startup page
         self.curr_page = None
-        self.change_page(config.startup_page)
-        
-    def touch_began(self, touch):
-        handled = super().touch_began(touch)
-        print('handled', handled)
-        
+        self.change_page(cfg.startup_page)
+
     def disable_status(self):
         from objc_util import ObjCInstance
         ObjCInstance(self.view).statusLabel().alpha = 0
@@ -493,14 +498,14 @@ class RemRootScene(MyScene):
         self.add_child(new_page)
         self.curr_page.run_action(Action.fade_to(1, 0.25))
         
-    def change_scene(self, scene):
+    def change_scene(self, s):
         if self.presented_scene:
             self.dismiss_modal_scene()
             #self.presented_scene.run_action(Action.fade_to(0, 0.5, TIMING_EASE_OUT))
         
         # Fade in new scene
         scene.alpha = 0
-        self.present_modal_scene(scene)
+        self.present_modal_scene(s)
         scene.run_action(Action.fade_to(1, 0.25, TIMING_EASE_IN))
 
 # --------------------------------------------------------------------------------
@@ -515,8 +520,9 @@ def get_config(filename):
 
 
 if __name__ == '__main__':
-    config = get_config('config.json')
+    cfg = get_config('config.json')
     
+    global root
     root = RemRootScene()
     # orientation no longer really works
     run(root, orientation=LANDSCAPE)

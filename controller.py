@@ -64,6 +64,18 @@ class MyController():
         self.t = threading.Thread(target=lambda: self.worker())
         self.t.start()
         
+        self.listener = None
+    
+    def connect(self):
+        self.set_status('connected')
+        
+    def set_status(self, status):
+        if self.listener:
+            self.listener(status)
+        
+    def add_listener(self, listener):
+        self.listener = listener
+        
     def put(self, name, value):
         self.q.put((name, value))
         # print('add:', name, '=', value)

@@ -8,7 +8,7 @@ import scene
 
 
 class MyTarget:
-    '''Touch target for UI. Gives feedback and optionally perform an action'''
+    '''Touch target for UI. Gives feedback and optionally performs an action'''
     def __init__(self):
         self.action = None
         self.repeat = True
@@ -36,9 +36,7 @@ class MyTarget:
                 ),
                 'repeat'
             )
-        
-        self.dispatch()
-    
+ 
     def dispatch(self):
         sound.play_effect('8ve:8ve-tap-simple')
         if self.action is not None:
@@ -48,7 +46,7 @@ class MyTarget:
         # hackish way to detect expiration of this touch by asking the root
         # if this is still a touch in flight. if not fade up. Attempting
         # to mess with the action from inside a callback is fatal though.
-        if touch.touch_id in root.touches:
+        if touch.touch_id in self.scene.touches:
             self.dispatch()
         else:
             self.fade_up()
@@ -68,7 +66,8 @@ class MyTarget:
         # print('ended')
         self.fade_up()
         self.cancel_repeat()
-
+        self.dispatch()
+    
 
 class MyDispatch():
     '''Base class for collection of MyTarget classes. handles dispatch to targets'''
@@ -154,10 +153,10 @@ class MyScene(MyDispatch, Scene):
     def touch_began(self, touch):
         if not MyDispatch.touch_began(self, touch):
             sound.play_effect('casino:CardSlide1')
-            return False
             
-        return True
-            
+    def touch_ended(self, touch):
+        MyDispatch.touch_ended(self, touch)
+        
 
 class MyPanel(ShapeNode, MyDispatch):
     '''A panel for grouping targets.  supports dispatch'''
