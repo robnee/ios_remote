@@ -10,19 +10,44 @@ import scene
 class MyTarget:
     '''Touch target for UI. Gives feedback and optionally performs an action'''
     def __init__(self):
+        self.touch = None
         self.action = None
-        self.repeat = True
+        self.repeating = True
         
     def touch_began(self, touch):
-        # flash the button to notify press
-        self.run_action(
-            Action.sequence(
-                Action.fade_to(0.5, 0.05)
-            )
-        )
+        self.fade_down()
+        self.start_repeat(touch)
+        self.touch = touch
 
-        # set the auto repeat timer
-        if(self.repeat):
+    def touch_moved(self, touch):
+        if self.touch is not None:
+            self.touch = touch
+        
+    def touch_ended(self, touch):
+        self.fade_up()
+        self.cancel_repeat()
+        if self.touch is not None:
+            self.dispatch()
+        self.touch = None
+
+    def touch_repeat(self, touch):
+        # hackish way to detect expiration of this touch by asking the root
+        # if this is still a touch in flight. if not fade up. Attempting
+        # to mess with the action from inside a callback is fatal though.
+        if touch.touch_id in self.scene.touches:
+            self.dispatch()
+        elif self.touch is not None:
+            self.touch = None
+            self.fade_up()
+
+    def dispatch(self):
+        sound.play_effect('8ve:8ve-tap-simple')
+        if self.action is not None:
+            self.action()
+
+    def start_repeat(self, touch):
+        self.cancel_repeat()
+        if(self.repeating):
             self.run_action(
                 Action.sequence(
                     Action.wait(0.75),
@@ -36,24 +61,17 @@ class MyTarget:
                 ),
                 'repeat'
             )
- 
-    def dispatch(self):
-        sound.play_effect('8ve:8ve-tap-simple')
-        if self.action is not None:
-            self.action()
-        
-    def touch_repeat(self, touch):
-        # hackish way to detect expiration of this touch by asking the root
-        # if this is still a touch in flight. if not fade up. Attempting
-        # to mess with the action from inside a callback is fatal though.
-        if touch.touch_id in self.scene.touches:
-            self.dispatch()
-        else:
-            self.fade_up()
-
+            
     def cancel_repeat(self):
         self.remove_action('repeat')
-          
+
+    def fade_down(self):
+        self.run_action(
+            Action.sequence(
+                Action.fade_to(0.5, 0.05)
+            )
+        )
+
     def fade_up(self):
         if self.alpha < 1.0:
             self.run_action(
@@ -62,35 +80,39 @@ class MyTarget:
                 )
             )
  
-    def touch_ended(self, touch):
-        # print('ended')
-        self.fade_up()
-        self.cancel_repeat()
-        self.dispatch()
     
-
 class MyDispatch():
     '''Base class for collection of MyTarget classes. handles dispatch to targets'''
     def touch_began(self, touch):
-        for x in self.children:
-            if x.frame.contains_point(touch.location):
-                if isinstance(x, MyDispatch) or isinstance(x, MyTarget):
-                    touch.location = x.point_from_scene(touch.location)
-                    x.touch_began(touch)
-                    return True
-                    
+        target = self.find_target(touch)
+        if target:
+            touch.location = target.point_from_scene(touch.location)
+            target.touch_began(touch)
+            return True  
         return False
-                    
+
+    def touch_moved(self, touch):
+        target = self.find_target(touch)
+        if target:
+            touch.location = target.point_from_scene(touch.location)
+            target.touch_moved(touch)
+            return True  
+        return False
+        
     def touch_ended(self, touch):
-        # print('MyDispatch.touch_ended')
+        target = self.find_target(touch)
+        if target:
+            touch.location = target.point_from_scene(touch.location)
+            target.touch_ended(touch)
+            return True  
+        return False
+
+    def find_target(self, touch):
         for x in self.children:
             if x.frame.contains_point(touch.location):
                 if isinstance(x, MyDispatch) or isinstance(x, MyTarget):
-                    touch.location = x.point_from_scene(touch.location)
-                    x.touch_ended(touch)
-                    return True
-                    
-        return False
+                    return x     
+        return None
 
 
 class MyLabelButton(ShapeNode, MyTarget):
@@ -120,7 +142,7 @@ class MyToggle(MyImgButton):
     '''Toggle button class'''
     def __init__(self, img_f, img_t):
         MyImgButton.__init__(self, img_f)
-        self.repeat = False
+        self.repeating = False
         self.img_f = img_f
         self.img_t = img_t
         self.state = False
@@ -153,9 +175,25 @@ class MyScene(MyDispatch, Scene):
     def touch_began(self, touch):
         if not MyDispatch.touch_began(self, touch):
             sound.play_effect('casino:CardSlide1')
-            
+
+    def touch_moved(self, touch):
+        MyDispatch.touch_moved(self, touch)
+        
     def touch_ended(self, touch):
         MyDispatch.touch_ended(self, touch)
+    
+    def disable_status(self):
+        from objc_util import ObjCInstance
+        v = ObjCInstance(self.view)
+        v.statusLabel().alpha = 0
+            
+    def hide_close(self, state=True):
+        from objc_util import ObjCInstance
+        v = ObjCInstance(self.view)
+        for x in v.subviews():
+            #if 'UIButton' in x.description():
+            if str(x.description()).find('UIButton') >= 0:
+                x.setHidden(state)
         
 
 class MyPanel(ShapeNode, MyDispatch):

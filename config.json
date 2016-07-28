@@ -3,15 +3,17 @@
         
     "titlebar": {
         "title": "Rob's Remote",
+        "xtitle_font": ["Arial Rounded MT Bold", 20],
+        "title_font": ["Helvetica Neue", 28],
         "height": 50,
         "color": "grey",
         "button_size": 40,
         "power_button": "iow:power_256",
         "back_button": "iow:ios7_undo_256",
-        "power_position": 25,
-        "back_position": 100,
-        "battery_position": -100,
-        "connection_position": -25,
+        "power_position": -25,
+        "back_position": 25,
+        "battery_position": -75,
+        "connection_position": -125,
         "connection": {
             "alert_color": "#cf0000",
             "activity_color": "#07b010"
@@ -67,7 +69,7 @@
         "margin_pct": 5,
         "background_color": [0.1, 0.1, 0.1],
         "startup_panel": "NEWS",
-        "channel_size": 90,
+        "channel_size": 95,
         "channel_font": ["Arial Rounded MT Bold", 20],
         "panels": {
             "BCAST": {

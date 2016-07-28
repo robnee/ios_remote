@@ -2,16 +2,18 @@
 
 uses scene to implement a home theater touch interface. Delegates command sending to a controller class.
 
-TODO:
-    move title bar to each page (added to dispatch to root scene)
-    create a macro class. or just add macros to subclass of controller
-    DONE panels instead of scenes for pages
-    DONE move assets info to a separate config class
-    add docstrings
-    change title bar when changing pages
-    parameterize RemTVPage
-    add a controller connection indicatior
-    action on button down or button up?
+Tasks:
+    - move title bar to each page (added to dispatch to root scene) @done
+    - create a macro class. or just add macros to subclass of controller
+    - targets react to ended evens even if no corresponding touch_began was received @done
+    - figure out how/where animation of connection indicator should be @done
+    - add docstrings
+    - change title bar when changing pages
+    - parameterize RemTVPage
+    - add a controller connection indicatior @done
+    - action on button down or button up? @done
+    - panels instead of scenes for pages @done
+    - move assets info to a separate config class @done
 '''
 
 from scene import *
@@ -25,7 +27,7 @@ import config
 import controller
 
 
-hostname = 'none'
+hostname = None
 '''Controller hostname control.
 
 Hostname or ip address to connect to.  if set to None search for host.  Set to
@@ -61,18 +63,17 @@ class RemPowerOffScene(MyScene):
         MyScene.setup(self)
         
     def touch_began(self, touch):
-        sound.play_effect('casino:ChipsStack4')
-    
+        #sound.play_effect('8ve:8ve-tap-simple')
         if self.panel.frame.contains_point(touch.location):
-            pass
-            #root.change_scene(root.blue_scene)
-        else:
-            root.dismiss_modal_scene()
+            # send commands for activity change
+            root.change_page('POWERON')
+            
+        root.change_scene()
 
 
 class RemBatteryIndicator(SpriteNode):
     def __init__(self, parent):
-        SpriteNode.__init__(self, texture='iow:battery_empty_256', )
+        SpriteNode.__init__(self, parent=parent, texture='iow:battery_empty_256', )
         self.run_action(Action.repeat(
             Action.sequence(
                 Action.wait(60),
@@ -80,9 +81,6 @@ class RemBatteryIndicator(SpriteNode):
             ),
             0
         ))
-        
-        parent.add_child(self)
-        
         self.update(0)
         
     def update(self, progress):
@@ -118,18 +116,25 @@ class RemBatteryIndicator(SpriteNode):
     
 class RemConnectionIndicator(SpriteNode):
     def __init__(self, parent):
-        SpriteNode.__init__(self, texture='iow:radio_waves_256')
+        SpriteNode.__init__(self, parent=parent, texture='iow:radio_waves_256')
         self.color = cfg.titlebar.connection.alert_color
-        
-        parent.add_child(self)
         
     def status_changed(self, status):
         if status == 'connected':
             self.color = 'white'
-        elif status == 'sending':
+        elif status == 'transmit':
             self.color = cfg.titlebar.connection.activity_color
         elif status == 'disconnected':
             self.color = cfg.titlebar.connection.alert_color
+            
+    def transmit(self):
+        self.color = cfg.titlebar.connection.activity_color
+        self.run_action(
+            Action.sequence(
+                Action.wait(0.1),
+                Action.call(lambda: self.status_changed('connected'))
+            )
+        )
         
 
 class RemTitlebar(ShapeNode, MyDispatch):
@@ -140,15 +145,15 @@ class RemTitlebar(ShapeNode, MyDispatch):
 
         self.position = (size.w / 2, size.h - cfg.titlebar.height / 2)
         
-        text = LabelNode(cfg.titlebar.title)
+        text = LabelNode(cfg.titlebar.title, tuple(cfg.titlebar.title_font))
         self.add_child(text)
         self.z_position = 10
         
         side = cfg.titlebar.button_size
         power = MyImgButton(cfg.titlebar.power_button)
         power.position = (-size.w / 2 + cfg.titlebar.power_position, 0)
-        power.action = lambda: root.change_scene(root.power_off_scene)
-        power.repeat = False
+        power.action = lambda: root.change_scene('POWEROFF')
+        power.repeating = False
         power.size = (side, side)  # make constants from these?
         
         self.add_child(power)
@@ -156,7 +161,7 @@ class RemTitlebar(ShapeNode, MyDispatch):
         n = MyImgButton(cfg.titlebar.back_button)
         n.position = (-size.w / 2 + cfg.titlebar.back_position, 0)
         n.action = lambda: root.change_page('POWERON')
-        n.repeat = False
+        n.repeating = False
         n.size = (side, side)
         self.add_child(n)
 
@@ -171,7 +176,7 @@ class RemTitlebar(ShapeNode, MyDispatch):
         self.layout()
 
         self.scene.controller.add_listener(self.conn.status_changed)
-        
+
     def layout(self):
         '''adjust layout so children are visible'''
         for n in self.children:
@@ -296,7 +301,6 @@ class RemTVPage(MyPage):
         
     def change_panel(self, panel_id):
         panel = self.panels[panel_id]
-        print('panel to', panel, panel_id, self.panel)
         if self.panel != panel:
             # fade out and remove current panel
             if self.panel is not None:
@@ -360,12 +364,12 @@ class RemVolumePanel(MyPanel):
         
         img, cmd, arg = cfg.volume.vol_up_button
         self.vol_up = MyImgButton(img)
-        self.vol_up.action = lambda c=cmd, a=arg: root.controller.put(c, a)
+        self.vol_up.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
         self.add_child(self.vol_up)
 
         img, cmd, arg = cfg.volume.vol_down_button
         self.vol_down = MyImgButton(img)
-        self.vol_down.action = lambda c=cmd, a=arg: root.controller.put(c, a)
+        self.vol_down.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
         self.add_child(self.vol_down)
         
     def layout(self):
@@ -456,13 +460,14 @@ class RemRootScene(MyScene):
     '''main Scene of remote app.  Receives and dispatches touch events'''
     def setup(self):
         self.disable_status()
+        self.hide_close()
         
         # set up controller communications
         self.controller = controller.MyController(hostname)
 
         self.titlebar = RemTitlebar(self.size, parent=self)
         
-        self.power_off_scene = RemPowerOffScene()
+        self.poweroff_scene = RemPowerOffScene()
         
         # set up page dict and instantiate page classes
         self.pages = dict()
@@ -478,10 +483,10 @@ class RemRootScene(MyScene):
         self.curr_page = None
         self.change_page(cfg.startup_page)
 
-    def disable_status(self):
-        from objc_util import ObjCInstance
-        ObjCInstance(self.view).statusLabel().alpha = 0
-                
+    def command_put(self, cmd, arg):
+        self.controller.put(cmd, arg)
+        self.titlebar.conn.transmit()
+        
     def change_page(self, page_id):
         new_page = self.pages[page_id]
         if self.curr_page is not None and self.curr_page != new_page:
@@ -498,15 +503,18 @@ class RemRootScene(MyScene):
         self.add_child(new_page)
         self.curr_page.run_action(Action.fade_to(1, 0.25))
         
-    def change_scene(self, s):
+    def change_scene(self, scene_id=None):
         if self.presented_scene:
             self.dismiss_modal_scene()
-            #self.presented_scene.run_action(Action.fade_to(0, 0.5, TIMING_EASE_OUT))
+            self.hide_close()
         
-        # Fade in new scene
-        scene.alpha = 0
-        self.present_modal_scene(s)
-        scene.run_action(Action.fade_to(1, 0.25, TIMING_EASE_IN))
+        if scene_id == 'POWEROFF':
+            self.hide_close(False)
+            
+            # Fade in
+            self.poweroff_scene.alpha = 0
+            self.present_modal_scene(self.poweroff_scene)
+            self.poweroff_scene.run_action(Action.fade_to(1, 0.25, TIMING_EASE_IN))
 
 # --------------------------------------------------------------------------------
 
@@ -525,4 +533,4 @@ if __name__ == '__main__':
     global root
     root = RemRootScene()
     # orientation no longer really works
-    run(root, orientation=LANDSCAPE)
+    run(root)

@@ -49,14 +49,13 @@ class MyController():
     def __init__(self, hostname=None):
         self.receiver = yamaha.yamaha(port=50000)
         if hostname is None:
+            self.hostname = hostname
+        elif hostname == 'auto':
             self.receiver.discover()
             self.hostname = self.receiver.hostname
-        elif hostname == 'none':
-            self.hostname = None
+            print('Discovered host controller on', self.hostname)
         else:
-            self.receiver.hostname = hostname
-      
-        print(self.hostname)
+            self.hostname = self.receiver.hostname = hostname
 
         # print(self.receiver.get('@SYS:INPNAME'))
 
@@ -64,12 +63,14 @@ class MyController():
         self.t = threading.Thread(target=lambda: self.worker())
         self.t.start()
         
+        self.status = 'init'
         self.listener = None
     
     def connect(self):
         self.set_status('connected')
         
     def set_status(self, status):
+        self.status = status
         if self.listener:
             self.listener(status)
         
@@ -85,7 +86,7 @@ class MyController():
             item = self.q.get()
             if item is None:
                 break
-                
+
             name, value = item
             self._put(name, value)
             self.q.task_done()
