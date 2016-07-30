@@ -29,8 +29,8 @@ import config
 import controller
 
 
-hostname = 'auto'
 hostname = None
+hostname = 'auto'
 '''Controller hostname control.
 
 Hostname or ip address to connect to.  if set to None search for host.  Set to
@@ -426,10 +426,12 @@ class RemControlPanel(MyPanel):
         button_size = Size(cfg.control.button_size[0], cfg.control.button_size[1])
         button_color = cfg.control.button_color
   
-        label, cmd1, arg1 = cfg.control.input1_button
+        label, cmd, arg = cfg.control.input1_button
         self.input1 = MyLabelButton(label, button_font, button_size, button_color, parent=self)
-        label, cmd1, arg1 = cfg.control.input3_button
+        self.input1.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
+        label, cmd, arg = cfg.control.input3_button
         self.input3 = MyLabelButton(label, button_font, button_size, button_color, parent=self)
+        self.input3.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
         
     def layout(self):
         w, h = self.size
@@ -437,7 +439,7 @@ class RemControlPanel(MyPanel):
         button_size = Size(cfg.control.button_size[0], cfg.control.button_size[1])
         
         self.input1.position = (button_size.w, h - button_size.h)
-        self.input3.position = (button_size.w, h - 2 * button_size.h)
+        self.input3.position = (button_size.w, h - 2.1 * button_size.h)
 
          
 class RemChannelPanel(MyPanel):

@@ -68,7 +68,7 @@ class yamaha:
         if __debug__: print('response {}: \'{}\''.format(self.request_id, response))
         
         # decode data and check if response indicates error
-        if (response == "@UNDEFINED"):
+        if response == "@UNDEFINED" or response == '@RESTRICTED':
             return None
 
         #print('respons2:', data2.decode())

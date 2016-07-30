@@ -41,8 +41,8 @@
     },
 
     "control": {
-        "input1_button": ["TV", "@MAIN:INPNAME", "HDMI1"],
-        "input3_button": ["AppleTV", "@MAIN:INPNAME", "HDMI3"],
+        "input1_button": ["TV", "@MAIN:INP", "AV1"],
+        "input3_button": ["AppleTV", "@MAIN:INP", "AV3"],
         "button_size": [100, 50],
         "button_font": ["Helvetica Neue", 20],
         "button_color": "darkgrey",
@@ -55,7 +55,7 @@
         "size": [600, 300],
         "panel_color": "grey",
         "icon_size": 120,
-        "icon_font": ["Helvetica", 20],
+        "icon_font": ["Helvetica", 24],
         "activities": [
             ["TV", "iow:ios7_monitor_outline_256", "PAGE", "TV"],
             ["\uF8FFTV", "iow:social_apple_outline_256", "PAGE", "APPLETV"],
@@ -71,14 +71,14 @@
         "class_name": "RemTVPage",
         "menu_height": 50,
         "menu_color": "grey",
-        "menu_font": ["Helvetica Neue", 20],
+        "menu_font": ["Helvetica Neue", 24],
         "menu_label_color": "lightgrey",
         "menu_select_color": "white",
         "menu_order": ["BCAST", "NEWS", "ENTER", "SPORTS", "MOVIES"],
         "margin_pct": 5,
         "background_color": [0.1, 0.1, 0.1],
         "startup_panel": "NEWS",
-        "channel_size": 95,
+        "channel_size": 100,
         "channel_font": ["Arial Rounded MT Bold", 18],
         "panels": {
             "BCAST": {
