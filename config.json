@@ -39,7 +39,16 @@
         "button_size": 50,
         "size": 200
     },
-    
+
+    "control": {
+        "input1_button": ["TV", "@MAIN:INPNAME", "HDMI1"],
+        "input3_button": ["AppleTV", "@MAIN:INPNAME", "HDMI3"],
+        "button_size": [100, 50],
+        "button_font": ["Helvetica Neue", 20],
+        "button_color": "darkgrey",
+        "size": 200
+    },
+
     "poweron": {
         "class_name": "RemPowerOnPage",
         "background_color": [0.2, 0.2, 0.2, 0.2],
@@ -62,7 +71,7 @@
         "class_name": "RemTVPage",
         "menu_height": 50,
         "menu_color": "grey",
-        "menu_font": ["Arial Rounded MT Bold", 20],
+        "menu_font": ["Helvetica Neue", 20],
         "menu_label_color": "lightgrey",
         "menu_select_color": "white",
         "menu_order": ["BCAST", "NEWS", "ENTER", "SPORTS", "MOVIES"],
@@ -70,30 +79,107 @@
         "background_color": [0.1, 0.1, 0.1],
         "startup_panel": "NEWS",
         "channel_size": 95,
-        "channel_font": ["Arial Rounded MT Bold", 20],
+        "channel_font": ["Arial Rounded MT Bold", 18],
         "panels": {
             "BCAST": {
                 "title": "Broadcast",
                 "color": "darkblue",
-                "activities": [
-                    ["TV", "iow:ios7_monitor_outline_256", "PAGE", "TV"]
+                "channels": [
+                    ["CBS", "", "", "0502"],
+                    ["NBC", "", "", "0504"],
+                    ["FOX", "", "", "0505"],
+                    ["ABC", "", "", "0507"],
+                    ["WWOR", "", "", "0509"],
+                    ["CW|WPIX", "", "", "0511"],
+                    ["PBS|WNET", "", "", "0513"],
+                    ["PBS|WLIW", "", "", "0521"],
+                    ["PBS|WNET", "", "", "0513"],
+                    ["WNYE|NYCTV", "", "", "0525"],
+                    ["ION|WPXN", "", "", "0531"],
+                    ["USA", "", "", "0550"],
+                    ["TNT", "", "", "0551"],
+                    ["TBS", "", "", "0552"]
                 ]
             },
             "NEWS": {
                 "title": "News",
-                "color": "darkred"
+                "color": "darkred",
+                "channels": [
+                    ["CNN", "", "", "0600"],
+                    ["MSNBC", "", "", "0603"],
+                    ["CNBC", "", "", "0602"],
+                    ["Bloomberg", "", "", "0604"],
+                    ["OA News", "", "", "0616"],
+                    ["Fox News", "", "", "0618"],
+                    ["Fox Bus", "", "", "0617"],
+                    ["Accu|Weather", "", "", "0619"],
+                    ["FiOS 1", "", "", "0501"]
+                ]
             },
             "ENTER": {
                 "title": "Entertainment",
-                "color": "purple"
+                "color": "purple",
+                "channels": [
+                    ["Discovery", "", "", "0620"],
+                    ["Nat Geo", "", "", "0621"],
+                    ["Science", "", "", "0622"],
+                    ["History", "", "", "0628"],
+                    ["MSNBC", "", "", "0603"],
+                    ["Animal", "", "", "0630"],
+                    ["TLC", "", "", "0639"],
+                    ["Lifetime", "", "", "0640"],
+                    ["OWN", "", "", "0645"],
+                    ["Cooking", "", "", "0663"],
+                    ["FoodTV", "", "", "0664"],
+                    ["HGTV", "", "", "0665"],
+                    ["DIY", "", "", "0667"],
+                    ["A&E", "", "", "0681"],
+                    ["Bravo", "", "", "0685"],
+                    ["AMC", "", "", "0731"],
+                    ["FX", "", "", "0553"]
+                    
+                ]
             },
             "SPORTS": {
                 "title": "Sports",
-                "color": "green"
+                "color": "green",
+                "channels": [
+                    ["ESPN", "", "", "0570"],
+                    ["ESPN2", "", "", "0574"],
+                    ["ESPN U", "", "", "0573"],
+                    ["ESPNews", "", "", "0572"],
+                    ["YES", "", "", "0576"],
+                    ["SportsNet", "", "", "0577"],
+                    ["MSG", "", "", "0578"],
+                    ["MSG 2", "", "", "0579"],
+                    ["MSG Plus", "", "", "0580"],
+                    ["Fox|Sports 1", "", "", "0583"],
+                    ["Fox|Sports 2", "", "", "0584"],
+                    ["NFL", "", "", "0588"],
+                    ["MLB", "", "", "0586"]
+                ]
             },
             "MOVIES": {
                 "title": "Movies",
-                "color": "goldenrod"
+                "color": "goldenrod",
+                "channels": [
+                    ["HBO", "", "", "0899"],
+                    ["HBO 2", "", "", "0902"],
+                    ["HBO Sig", "", "", "0904"],
+                    ["HBO Fam", "", "", "0906"],
+                    ["HBO Com", "", "", "0908"],
+                    ["HBO Zone", "", "", "0910"],
+                    ["HBO West", "", "", "0901"],
+                    ["HBO 2|West", "", "", "0903"],
+                    ["HBO Sig|West", "", "", "0905"],
+                    ["HBO Fam|West", "", "", "0907"],
+                    ["HBO Com|West", "", "", "0909"],
+                    ["HBO Zone|West", "", "", "0911"],
+                    ["SHO", "", "", "0865"],
+                    ["SHO 2", "", "", "0869"]
+                    
+                    
+                ]
             }
         }
     },

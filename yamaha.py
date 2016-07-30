@@ -17,6 +17,7 @@ class yamaha:
     def __init__(self, port, hostname=None):
         self.port = port
         self.hostname = hostname
+        self.request_id = 0
 
     def get_local_ip_address():
       ''' Returns the ip address running the python interpreter '''
@@ -33,6 +34,7 @@ class yamaha:
         pass
 
     def request(self, hostname, timeout, name, value):
+        self.request_id += 1
         msg = name + "=" + value + "\r\n"
 
         try:
@@ -59,12 +61,16 @@ class yamaha:
         finally:
             s.close()
             s = None
- 
+
+        response = response.rstrip('\n\r')
+        
+        if __debug__: print('request {}: {}={}'.format(self.request_id, name, value))
+        if __debug__: print('response {}: \'{}\''.format(self.request_id, response))
+        
         # decode data and check if response indicates error
-        if (response == "@UNDEFINED\r\n"):
+        if (response == "@UNDEFINED"):
             return None
 
-        if __debug__: print(name, 'response:', response)
         #print('respons2:', data2.decode())
         results = {}
         # Build a dict of the results
@@ -142,5 +148,6 @@ if __name__ == '__main__':
     print("get vol", a.get("@MAIN:VOL"))
     print("vol bad", a.put("@MAIN:VOL", 'Up 2 Db'))
     print("vol good", a.put("@MAIN:VOL", 'Down 2 dB'))
-
+    print("pwr", a.put("@MAIN:PWR", "Standby"))
+    
 # ----------------------------------------------------------------------------

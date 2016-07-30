@@ -12,7 +12,7 @@ class MyTarget:
     def __init__(self):
         self.touch = None
         self.action = None
-        self.repeating = True
+        self.repeating = False
         
     def touch_began(self, touch):
         self.fade_down()
@@ -35,7 +35,8 @@ class MyTarget:
         # if this is still a touch in flight. if not fade up. Attempting
         # to mess with the action from inside a callback is fatal though.
         if touch.touch_id in self.scene.touches:
-            self.dispatch()
+            if self.repeating:
+                self.dispatch()
         elif self.touch is not None:
             self.touch = None
             self.fade_up()
@@ -47,20 +48,19 @@ class MyTarget:
 
     def start_repeat(self, touch):
         self.cancel_repeat()
-        if(self.repeating):
-            self.run_action(
-                Action.sequence(
-                    Action.wait(0.75),
-                    Action.repeat(
-                        Action.sequence(
-                            Action.call(lambda: self.touch_repeat(touch)),
-                            Action.wait(0.25)
-                        ),
-                        25
-                    )
-                ),
-                'repeat'
-            )
+        self.run_action(
+            Action.sequence(
+                Action.wait(0.75),
+                Action.repeat(
+                    Action.sequence(
+                        Action.call(lambda: self.touch_repeat(touch)),
+                        Action.wait(0.20)
+                    ),
+                    25
+                )
+            ),
+            'repeat'
+        )
             
     def cancel_repeat(self):
         self.remove_action('repeat')
@@ -117,16 +117,17 @@ class MyDispatch():
 
 class MyLabelButton(ShapeNode, MyTarget):
     '''Button by combining LabelNode with target handling'''
-    def __init__(self, text, font, bgcolor=(0,0,0,0), size=None, shadow=None):
+    def __init__(self, text, font, size=None, *args, **kwargs):
         MyTarget.__init__(self)
         
         self.label = LabelNode(text, font)
         self.add_child(self.label)
 
-        sz = size if size else Size(self.label.size.w, self.label.size.w)
-        path = ui.Path.rounded_rect(0, 0, sz.w, sz.h, sz.w / 10)
+        if size is None: size = self.label.size
+        
+        path = ui.Path.rounded_rect(0, 0, size.w, size.h, size.w / 10)
         path.line_width = 0
-        ShapeNode.__init__(self, path=path, fill_color=bgcolor, shadow=shadow)
+        ShapeNode.__init__(self, path, *args, **kwargs)
         
 
 class MyImgButton(SpriteNode, MyTarget):

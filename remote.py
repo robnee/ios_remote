@@ -5,8 +5,8 @@ uses scene to implement a home theater touch interface. Delegates command sendin
 Tasks:
     - move title bar to each page (added to dispatch to root scene) @done
     - create a macro class. or just add macros to subclass of controller
-    - targets react to ended evens even if no corresponding touch_began was received @done
-    - figure out how/where animation of connection indicator should be @done
+    - manual control for receiver page
+    - can we add concept of 'touch capture' on touch_begin to make target handling cleaner
     - add docstrings
     - change title bar when changing pages
     - parameterize RemTVPage
@@ -14,6 +14,8 @@ Tasks:
     - action on button down or button up? @done
     - panels instead of scenes for pages @done
     - move assets info to a separate config class @done
+    - targets react to ended evens even if no corresponding touch_began was received @done
+    - figure out how/where animation of connection indicator should be @done
 '''
 
 from scene import *
@@ -27,6 +29,7 @@ import config
 import controller
 
 
+hostname = 'auto'
 hostname = None
 '''Controller hostname control.
 
@@ -153,7 +156,6 @@ class RemTitlebar(ShapeNode, MyDispatch):
         power = MyImgButton(cfg.titlebar.power_button)
         power.position = (-size.w / 2 + cfg.titlebar.power_position, 0)
         power.action = lambda: root.change_scene('POWEROFF')
-        power.repeating = False
         power.size = (side, side)  # make constants from these?
         
         self.add_child(power)
@@ -161,7 +163,6 @@ class RemTitlebar(ShapeNode, MyDispatch):
         n = MyImgButton(cfg.titlebar.back_button)
         n.position = (-size.w / 2 + cfg.titlebar.back_position, 0)
         n.action = lambda: root.change_page('POWERON')
-        n.repeating = False
         n.size = (side, side)
         self.add_child(n)
 
@@ -219,10 +220,9 @@ class RemPowerOnPage(MyPage):
             n.action = lambda id=arg: root.change_page(id)
             p.add_child(n)
             
-            l = LabelNode(label, icon_font)
+            l = LabelNode(label, icon_font, parent=p)
             l.position = (x, size.h / 2 - icon_size / 2)
             l.action = lambda id=arg: root.change_page(id)
-            p.add_child(l)
             
             x += margin * 2
 
@@ -242,27 +242,32 @@ class RemTVPage(MyPage):
         font = tuple(cfg.tv.menu_font)
         for panel_id in cfg.tv.menu_order:
             title = cfg.tv.panels[panel_id]['title']
-            c = MyLabelButton(title, font)
+            c = MyLabelButton(title, font, fill_color=(0, 0, 0, 0), parent=self.menu)
             c.color = cfg.tv.menu_label_color
             c.label_id = panel_id
             c.action = lambda panel_id=panel_id: self.change_panel(panel_id)
-            self.menu.add_child(c)
         
         # volume panel
         self.vol = RemVolumePanel(Size(0, 0), cfg.tv.menu_color)
         self.add_child(self.vol)
 
+        # control panel
+        self.control = RemControlPanel(Size(0, 0), cfg.tv.menu_color)
+        self.add_child(self.control)
+        
         self.panels = dict()
 
-        channel_size = cfg.tv.channel_size
+        channel_size = Size(cfg.tv.channel_size, cfg.tv.channel_size)
         channel_font = tuple(cfg.tv.channel_font)
         for id in cfg.tv.panels:
             channel_color = cfg.tv.panels[id]['color']
             self.panels[id] = p = RemChannelPanel(Size(0, 0), cfg.tv.menu_color)
             p.alpha = 0
-        
-            for i in range(20):
-                n = MyLabelButton('CHAN ' + str(i), channel_font, channel_color, Size(channel_size, channel_size))
+
+            for channel in cfg.tv.panels[id]['channels']:
+                label, icon, cmd, arg = channel
+                label1, sep, label2 = label.partition('|')
+                n = RemChannelButton(label1, label2, channel_font, channel_color, channel_size)
                 p.add_child(n)
                 
         self.did_change_size()
@@ -270,33 +275,44 @@ class RemTVPage(MyPage):
         self.change_panel(cfg.tv.startup_panel)
 
     def did_change_size(self):
-        landscape = self.size.w > self.size.h
-        
         side = min(self.size)
         margin = side * cfg.tv.margin_pct / 100
         
         mside = cfg.tv.menu_height
-        self.menu.position = (margin, self.size.h - margin - mside)
-        self.menu.set_size(Size(side - 2 * margin, mside))
-        self.menu.layout()
-        
-        # Volume panel
         vside = cfg.volume.size
-        self.vol.position = (margin, margin)
-        self.vol.set_size(Size(side * 0.4, vside))
+        xside = cfg.control.size
+        
+        landscape = self.size.w > self.size.h
         if landscape:
-            self.vol.position = (side, margin)
+            self.menu.position = (margin, self.size.h - margin - mside)
+            self.menu.set_size(Size(side, mside))
+    
+            self.vol.set_size(Size(vside, vside))
+            self.vol.position = (side + 2 * margin, margin)
+            
+            self.control.set_size(Size(vside, side - vside - 3 * margin))
+            self.control.position = (side + 2 * margin, vside + 2 * margin)
+            
+            panel_size = Size(side, min(side, self.size.h - margin * 3 - mside))
         else:
+            self.menu.position = (margin, self.size.h - margin - mside)
+            self.menu.set_size(Size(side - 2 * margin, mside))
+            
+            self.vol.set_size(Size(vside, vside))
             self.vol.position = (margin, margin)
+            
+            self.control.set_size(Size(side - vside - 3 * margin, vside))
+            self.control.position = (vside + 2 * margin, margin)
+            
+            panel_size = Size(side - 2 * margin, self.size.h - margin * 4 - mside - self.vol.size.h)
+            
+        self.control.layout()
         self.vol.layout()
-          
-        if landscape:
-            cside = min(side, self.size.h - margin * 3 - mside)
-        else:
-            cside = min(side, self.size.h - margin * 4 - mside - vside)
+        self.menu.layout()
+            
         for id in self.panels:
-            self.panels[id].position = (margin, self.size.h - cside - mside - 2 * margin)
-            self.panels[id].set_size(Size(side - 2 * margin, cside))
+            self.panels[id].position = (margin, self.size.h - panel_size.h - mside - 2 * margin)
+            self.panels[id].set_size(panel_size)
             self.panels[id].layout()
         
     def change_panel(self, panel_id):
@@ -323,6 +339,24 @@ class RemTVPage(MyPage):
                     n.label.color = cfg.tv.menu_select_color
                 else:
                     n.label.color = cfg.tv.menu_label_color
+
+
+class RemChannelButton(ShapeNode, MyTarget):
+    '''Button by combining 2 LabelNodes with target handling'''
+    def __init__(self, text1, text2, font1, bgcolor=(0,0,0,0), size=None, shadow=None):
+        MyTarget.__init__(self)
+        
+        sz = size if size else Size(self.label.size.w, self.label.size.w)
+        path = ui.Path.rounded_rect(0, 0, sz.w, sz.h, sz.w / 10)
+        path.line_width = 0
+        ShapeNode.__init__(self, path=path, fill_color=bgcolor, shadow=shadow)
+        
+        font2 = (font1[0], font1[1] * 0.75)
+        pos1 = (0, font2[1] / 2 if len(text2) > 0 else 0)
+        pos2 = (0, -font1[1] / 2)    
+    
+        self.label1 = LabelNode(text1, font1, parent=self, position=pos1)
+        self.label2 = LabelNode(text2, font2, parent=self, position=pos2)
 
 
 class RemMenuPanel(MyPanel):
@@ -355,7 +389,7 @@ class RemVolumePanel(MyPanel):
     def __init__(self, size, color):
         super().__init__(size, color)
         
-        w, h = self.size
+        #w, h = self.size
         
         img0, cmd0, arg0 = cfg.volume.mute_off_button
         img1, cmd1, arg1 = cfg.volume.mute_on_button
@@ -365,21 +399,46 @@ class RemVolumePanel(MyPanel):
         img, cmd, arg = cfg.volume.vol_up_button
         self.vol_up = MyImgButton(img)
         self.vol_up.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
+        self.vol_up.repeating = True
         self.add_child(self.vol_up)
 
         img, cmd, arg = cfg.volume.vol_down_button
         self.vol_down = MyImgButton(img)
         self.vol_down.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
+        self.vol_down.repeating = True
         self.add_child(self.vol_down)
         
     def layout(self):
         w, h = self.size
         button_size = cfg.volume.button_size
 
-        self.mute.position = (w / 2, button_size)
+        self.mute.position = (button_size, button_size)
         self.vol_up.position = (w - button_size, h - button_size)
         self.vol_down.position = (w - button_size, button_size)
+
+            
+class RemControlPanel(MyPanel):
+    '''misc other controls'''
+    def __init__(self, size, color):
+        super().__init__(size, color)
+
+        button_font = tuple(cfg.control.button_font)
+        button_size = Size(cfg.control.button_size[0], cfg.control.button_size[1])
+        button_color = cfg.control.button_color
+  
+        label, cmd1, arg1 = cfg.control.input1_button
+        self.input1 = MyLabelButton(label, button_font, button_size, button_color, parent=self)
+        label, cmd1, arg1 = cfg.control.input3_button
+        self.input3 = MyLabelButton(label, button_font, button_size, button_color, parent=self)
         
+    def layout(self):
+        w, h = self.size
+
+        button_size = Size(cfg.control.button_size[0], cfg.control.button_size[1])
+        
+        self.input1.position = (button_size.w, h - button_size.h)
+        self.input3.position = (button_size.w, h - 2 * button_size.h)
+
          
 class RemChannelPanel(MyPanel):
     '''groups channel buttons in a grid'''
@@ -463,7 +522,7 @@ class RemRootScene(MyScene):
         self.hide_close()
         
         # set up controller communications
-        self.controller = controller.MyController(hostname)
+        self.controller = controller.MyController()
 
         self.titlebar = RemTitlebar(self.size, parent=self)
         
@@ -477,15 +536,16 @@ class RemRootScene(MyScene):
             class_ = globals()[class_name]
             self.pages[page_id] = class_(self.size)
          
-        self.controller.connect()
+        self.controller.connect(hostname)
         
         # flip to startup page
         self.curr_page = None
         self.change_page(cfg.startup_page)
 
     def command_put(self, cmd, arg):
-        self.controller.put(cmd, arg)
-        self.titlebar.conn.transmit()
+        if self.controller.status == 'connected':
+            self.controller.put(cmd, arg)
+            self.titlebar.conn.transmit()
         
     def change_page(self, page_id):
         new_page = self.pages[page_id]

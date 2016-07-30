@@ -47,27 +47,28 @@ codes = [
 
 class MyController():
     def __init__(self, hostname=None):
-        self.receiver = yamaha.yamaha(port=50000)
-        if hostname is None:
-            self.hostname = hostname
-        elif hostname == 'auto':
-            self.receiver.discover()
-            self.hostname = self.receiver.hostname
-            print('Discovered host controller on', self.hostname)
-        else:
-            self.hostname = self.receiver.hostname = hostname
-
-        # print(self.receiver.get('@SYS:INPNAME'))
-
         self.q = queue.Queue()
         self.t = threading.Thread(target=lambda: self.worker())
         self.t.start()
         
         self.status = 'init'
         self.listener = None
+        
+        self.connect(hostname)
     
-    def connect(self):
-        self.set_status('connected')
+    def connect(self, hostname=None):
+        self.receiver = yamaha.yamaha(port=50000)
+        if hostname is None:
+            self.hostname = hostname
+            self.set_status('disconnected')
+        elif hostname == 'auto':
+            self.receiver.discover()
+            self.hostname = self.receiver.hostname
+            print('Discovered host controller on', self.hostname)
+            self.set_status('connected')
+        else:
+            self.hostname = self.receiver.hostname = hostname
+            self.set_status('connected')
         
     def set_status(self, status):
         self.status = status
