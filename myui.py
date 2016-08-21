@@ -44,7 +44,7 @@ class MyTarget:
     def dispatch(self):
         sound.play_effect('8ve:8ve-tap-simple')
         if self.action is not None:
-            self.action()
+            self.action.fire()
 
     def start_repeat(self, touch):
         self.cancel_repeat()

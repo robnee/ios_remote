@@ -42,6 +42,8 @@ Hostname or ip address to connect to.  if set to None search for host.  Set to
 # These functions are the actual remote control implementation
 # -------------------------------------------------------------------------
 
+RemAction = controller.MyFunctionAction
+
 
 class RemPowerOffScene(MyScene):
     '''Modal scene for power off confirmation'''
@@ -155,14 +157,14 @@ class RemTitlebar(ShapeNode, MyDispatch):
         side = cfg.titlebar.button_size
         power = MyImgButton(cfg.titlebar.power_button)
         power.position = (-size.w / 2 + cfg.titlebar.power_position, 0)
-        power.action = lambda: root.change_scene('POWEROFF')
+        power.action = RemAction(lambda: root.change_scene('POWEROFF'))
         power.size = (side, side)  # make constants from these?
         
         self.add_child(power)
         
         n = MyImgButton(cfg.titlebar.back_button)
         n.position = (-size.w / 2 + cfg.titlebar.back_position, 0)
-        n.action = lambda: root.change_page('POWERON')
+        n.action = RemAction(lambda: root.change_page('POWERON'))
         n.size = (side, side)
         self.add_child(n)
 
@@ -217,12 +219,12 @@ class RemPowerOnPage(MyPage):
             n = MyImgButton(icon)
             n.size = (icon_size, icon_size)
             n.position = (x, size.h / 2 + label_offset)
-            n.action = lambda id=arg: root.change_page(id)
+            n.action = RemAction(lambda id=arg: root.change_page(id))
             p.add_child(n)
             
             l = LabelNode(label, icon_font, parent=p)
             l.position = (x, size.h / 2 - icon_size / 2)
-            l.action = lambda id=arg: root.change_page(id)
+            l.action = RemAction(lambda id=arg: root.change_page(id))
             
             x += margin * 2
 
@@ -245,7 +247,7 @@ class RemTVPage(MyPage):
             c = MyLabelButton(title, font, fill_color=(0, 0, 0, 0), parent=self.menu)
             c.color = cfg.tv.menu_label_color
             c.label_id = panel_id
-            c.action = lambda panel_id=panel_id: self.change_panel(panel_id)
+            c.action = RemAction(lambda panel_id=panel_id: self.change_panel(panel_id))
         
         # volume panel
         self.vol = RemVolumePanel(Size(0, 0), cfg.tv.menu_color)
@@ -398,13 +400,13 @@ class RemVolumePanel(MyPanel):
         
         img, cmd, arg = cfg.volume.vol_up_button
         self.vol_up = MyImgButton(img)
-        self.vol_up.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
+        self.vol_up.action = RemAction(lambda c=cmd, a=arg: self.scene.command_put(c, a))
         self.vol_up.repeating = True
         self.add_child(self.vol_up)
 
         img, cmd, arg = cfg.volume.vol_down_button
         self.vol_down = MyImgButton(img)
-        self.vol_down.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
+        self.vol_down.action = RemAction(lambda c=cmd, a=arg: self.scene.command_put(c, a))
         self.vol_down.repeating = True
         self.add_child(self.vol_down)
         
@@ -428,15 +430,15 @@ class RemControlPanel(MyPanel):
   
         label, cmd, arg = cfg.control.input1_button
         self.input1 = MyLabelButton(label, button_font, button_size, button_color, parent=self)
-        self.input1.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
+        self.input1.action = RemAction(lambda c=cmd, a=arg: self.scene.command_put(c, a))
         label, cmd, arg = cfg.control.input3_button
         self.input3 = MyLabelButton(label, button_font, button_size, button_color, parent=self)
-        self.input3.action = lambda c=cmd, a=arg: self.scene.command_put(c, a)
+        self.input3.action = RemAction(lambda c=cmd, a=arg: self.scene.command_put(c, a))
         
     def layout(self):
         w, h = self.size
 
-        button_size = Size(cfg.control.button_size[0], cfg.control.button_size[1])
+        button_size = Size(*cfg.control.button_size)
         
         self.input1.position = (button_size.w, h - button_size.h)
         self.input3.position = (button_size.w, h - 2.1 * button_size.h)
@@ -521,13 +523,13 @@ class RemRootScene(MyScene):
     '''main Scene of remote app.  Receives and dispatches touch events'''
     def setup(self):
         self.disable_status()
-        self.hide_close()
+        #self.hide_close()
         
         # set up controller communications
         self.controller = controller.MyController()
 
         self.titlebar = RemTitlebar(self.size, parent=self)
-        
+
         self.poweroff_scene = RemPowerOffScene()
         
         # set up page dict and instantiate page classes
@@ -539,13 +541,15 @@ class RemRootScene(MyScene):
             self.pages[page_id] = class_(self.size)
          
         self.controller.connect(hostname)
-        
+        if self.controller.get_status() == 'connected':
+            self.titlebar.conn.status_changed('connected')
+            
         # flip to startup page
         self.curr_page = None
         self.change_page(cfg.startup_page)
 
     def command_put(self, cmd, arg):
-        if self.controller.status == 'connected':
+        if self.controller.get_status() == 'connected':
             self.controller.put(cmd, arg)
             self.titlebar.conn.transmit()
         

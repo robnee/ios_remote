@@ -14,23 +14,12 @@ checkhost = "google.com"
 checkport = 80
 
 class yamaha:
-    def __init__(self, port, hostname=None):
+    def __init__(self, port=50000, hostname=None):
         self.port = port
         self.hostname = hostname
         self.request_id = 0
 
-    def get_local_ip_address():
-      ''' Returns the ip address running the python interpreter '''
-      # connecting to a UDP address doesn't send packets
-      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-      s.connect((checkhost, checkport))
-      print(checkhost, checkport)
-      
-      return s.getsockname()[0]
-
     def check_connect(self):
-        if self.hostname is None:
-            raise ValueError('no hostname')
         pass
 
     def request(self, hostname, timeout, name, value):
@@ -97,57 +86,22 @@ class yamaha:
             return results
         else:
             return self.request(self.hostname, 0.10, name, value)
-        
-    def ping(self, hostname, timeout=4):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(timeout)
-            s.connect((hostname, self.port))
-            s.sendall(bytes(MODELNAME + "=?\r\n", 'utf-8'))
-            data = s.recv(1024)
-            s.close()
-            s = None
-            
-            if len(data) > 0: return True
-        
-        except socket.error as msg:
-            s.close()
-            s = None
-            
-        return False
 
-    def discover(self):
-        self.local_host = socket.gethostname()
-        self.local_ip = yamaha.get_local_ip_address()
-        host_address = self.local_ip.split('.')
-
-        start = 1
-        end = 254
+        
     
-        while(start <= end):
-            host_address[3] = str(start)
-            hostname = '.'.join(host_address)
-
-            ret = self.ping(hostname, 0.5)
-            if (ret):
-                self.hostname = hostname
-                break
-
-            start += 1
-
 # ----------------------------------------------------------------------------
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     port = 50000
-    hostname = None
+    hostname = '192.168.1.16'
     a = yamaha(port, hostname)
-    a.discover()
-    print("receiver at ", a.hostname)
 
-    print("pwr", a.put("@MAIN:PWR", "On"))
+    print('receiver at', a.hostname)
+
+    #print("pwr", a.put("@MAIN:PWR", "On"))
     print("get vol", a.get("@MAIN:VOL"))
     print("vol bad", a.put("@MAIN:VOL", 'Up 2 Db'))
     print("vol good", a.put("@MAIN:VOL", 'Down 2 dB'))
-    print("pwr", a.put("@MAIN:PWR", "Standby"))
+    #print("pwr", a.put("@MAIN:PWR", "Standby"))
     
 # ----------------------------------------------------------------------------
