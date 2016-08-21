@@ -47,7 +47,6 @@ class LircPy():
             data = ''
             while True:
                 line = self.sf.readline().strip()
-                print('line:', line)
                 if i == 0:
                     if line != 'BEGIN':
                         raise InvalidResponseError('Expected {0!r} but got {1!r}'.format('BEGIN', line))

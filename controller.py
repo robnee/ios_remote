@@ -135,6 +135,7 @@ class MyTuneAction(MyAction):
             self.channel = arg
             
     def __fire__(self):
+        print('fire tune', self.channel)
         for digit in self.channel:
             self.cont.put('FIOS:KEY_DIGIT_' + digit, '')
             
@@ -314,7 +315,7 @@ class MyController():
 if __name__ == '__main__':
     mc = MyController('auto')
     
-    
+    mc.lirc.put('FIOS:KEY_MENU_MAIN', '')
     mc.lirc.put('FIOS:KEY_DIGIT_0', '')
     mc.lirc.put('FIOS:KEY_DIGIT_6', '')
     mc.lirc.put('FIOS:KEY_DIGIT_0', '')

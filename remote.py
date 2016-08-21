@@ -43,6 +43,7 @@ Hostname or ip address to connect to.  if set to None search for host.  Set to
 # -------------------------------------------------------------------------
 
 RemAction = controller.MyFunctionAction
+RemTune = controller.MyTuneAction
 
 
 class RemPowerOffScene(MyScene):
@@ -70,12 +71,17 @@ class RemPowerOffScene(MyScene):
     def touch_began(self, touch):
         #sound.play_effect('8ve:8ve-tap-simple')
         if self.panel.frame.contains_point(touch.location):
-            # send commands for activity change
+            self.poweroff()
             root.change_page('POWERON')
             
         root.change_scene()
 
-
+    def poweroff(self):
+        root.command_put('@MAIN:PWR', 'Standby')
+        root.command_put('PANTV:KEY_POWEROFF', '')
+        root.command_put('FIOS:KEY_POWER_OFF', '')
+        
+        
 class RemBatteryIndicator(SpriteNode):
     def __init__(self, parent):
         SpriteNode.__init__(self, parent=parent, texture='iow:battery_empty_256', )
@@ -228,6 +234,8 @@ class RemPowerOnPage(MyPage):
             
             x += margin * 2
 
+    def start_page(self):
+        pass
 
 class RemTVPage(MyPage):
     '''Page for broascast/cable TV activity'''
@@ -271,6 +279,7 @@ class RemTVPage(MyPage):
                 label1, sep, label2 = label.partition('|')
                 n = RemChannelButton(label1, label2, channel_font, channel_color, channel_size)
                 p.add_child(n)
+                n.action = RemTune(root.controller, arg)
                 
         self.did_change_size()
         
@@ -316,6 +325,13 @@ class RemTVPage(MyPage):
             self.panels[id].position = (margin, self.size.h - panel_size.h - mside - 2 * margin)
             self.panels[id].set_size(panel_size)
             self.panels[id].layout()
+
+    def start_page(self):
+        self.scene.command_put('@MAIN:PWR', 'On')
+        self.scene.command_put('PANTV:KEY_POWERON', '')
+        self.scene.command_put('FIOS:KEY_MENU_MAIN', '')
+        self.scene.command_put('FIOS:KEY_EXIT', '')
+        self.scene.command_put('@MAIN:INP', 'AV1')
         
     def change_panel(self, panel_id):
         panel = self.panels[panel_id]
@@ -523,7 +539,7 @@ class RemRootScene(MyScene):
     '''main Scene of remote app.  Receives and dispatches touch events'''
     def setup(self):
         self.disable_status()
-        #self.hide_close()
+        self.hide_close()
         
         # set up controller communications
         self.controller = controller.MyController()
@@ -568,6 +584,7 @@ class RemRootScene(MyScene):
         self.curr_page = new_page
         self.add_child(new_page)
         self.curr_page.run_action(Action.fade_to(1, 0.25))
+        self.curr_page.start_page()
         
     def change_scene(self, scene_id=None):
         if self.presented_scene:

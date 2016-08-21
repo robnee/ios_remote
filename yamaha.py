@@ -98,7 +98,8 @@ if __name__ == '__main__':
 
     print('receiver at', a.hostname)
 
-    #print("pwr", a.put("@MAIN:PWR", "On"))
+    print("pwr", a.put("@MAIN:PWR", "On"))
+    print("input hdmi1", a.put("@MAIN:INPUT", 'AV1'))
     print("get vol", a.get("@MAIN:VOL"))
     print("vol bad", a.put("@MAIN:VOL", 'Up 2 Db'))
     print("vol good", a.put("@MAIN:VOL", 'Down 2 dB'))
